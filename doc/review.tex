@@ -1,0 +1,636 @@
+\documentclass[12pt]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[full]{textcomp}
+\usepackage{newtxtext}
+\usepackage{cabin} % sans serif
+\usepackage[varqu,varl]{inconsolata} % sans serif typewriter
+\usepackage[final,expansion=alltext]{microtype}
+\usepackage[english]{babel}
+\usepackage{amsmath}
+\usepackage[bigdelims,vvarbb]{newtxmath} % bb from STIX
+\usepackage{hyperref}
+\usepackage{enumitem}
+
+\setlist{nolistsep}
+
+% Reference management
+\usepackage[style=numeric]{biblatex}
+\bibliography{references.bib}
+
+% Custom citation command
+\DeclareCiteCommand{\longcite}
+  {\usebibmacro{prenote}}
+  {%
+    % Print author names
+    \printnames{author}%
+    \addperiod\space
+    % Print title in quotes with hyperlink (if DOI or URL exists)
+    \iffieldundef{doi}
+      {\iffieldundef{url}
+        % If no DOI or URL, just print title
+        {\mkbibquote{\printfield{title}}}
+        % If URL exists, link to it
+        {\href{\thefield{url}}{\mkbibquote{\printfield{title}}}}}
+      % If DOI exists, link to DOI
+      {\href{https://doi.org/\thefield{doi}}{\mkbibquote{\printfield{title}}}}%
+    \addperiod\space
+    % Print container (journal/conference/book)
+    \iffieldundef{journaltitle}
+      {\iffieldundef{booktitle}
+        {}
+        {\printfield{booktitle}}}
+      {\printfield{journaltitle}}%
+    \addperiod\space
+    % Print year
+    \printfield{year}%
+    \addperiod
+  }
+  {\multicitedelim}
+  {\usebibmacro{postnote}}
+
+
+% geometry of the page
+
+\usepackage[top=1in,
+            bottom=1in,
+            left=1in,
+            right=1in]{geometry}
+
+% paragraph spacing
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{2ex plus 0.4ex minus 0.2ex}
+
+% useful packages
+
+\usepackage{epsfig}
+\usepackage{url}
+\usepackage{bm}
+\usepackage{blindtext}
+
+\newcommand{\term}[1]{\emph{#1.}}
+
+\begin{document}
+
+\begin{flushleft}
+\textbf{Master Document: Multi-Fidelity BO} \\
+Aman Choudhri (ac4972) \\
+\today
+\end{flushleft}
+
+\tableofcontents
+\newpage
+
+\section{Definitions and Thoughts}
+\subsection{Useful Definitions}
+\term{Large eddy simulation (LES)}
+A numerical method to approximately simulate turbulent flows more cheaply than
+directly solving the Navier-Stokes equations. The key idea behind LES is to
+essentially ignore the smallest length scales, which add significant
+computational overhead, via a low-pass filter on the Navier-Stokes equations.
+Instead, the small length scales are modeled using ``subgrid-scale (SGS)
+models,'' which are usually so-called ``eddy-viscosity models.''
+
+\term{Atmospheric boundary layer (ABL)}
+The lowest level of the atmosphere, a region directly influenced by contact
+with the Earth's surface. Above the ABL, the wind flows parallel to level
+curves of equal pressure, but within in the flow is far more complex. It
+appears that there are multiple common ``profiles'' of ABLs used in modeling:
+neutral, stable, unstable, convective. Further, it appears that there are two
+main approaches for modeling the ABL, either a ``precursor LES'' or a
+``synthetic'' approach \cite{bretonSurveyModellingMethods2017,
+mehtaLargeEddySimulation2014}.
+
+\term{Gravity wave effects} 
+
+\term{Thermal stratification} 
+
+\term{Reynolds-Averaged Navier-Stokes (RANS) model}
+A model for resolving ``wake turbulence'' that is often used in analytical
+engineering models. It has many constants which must be tuned empirically using
+real aerodynamic wind farm data \cite[pg.2]{mehtaLargeEddySimulation2014}.
+Aside from one case known as the ``Reynolds Stress model,'' RANS models
+generally make a certain isotropy assumption on the turbulence, rendering these
+models unsuitable for anisotropic flows like the atmospheric boundary layer and
+turbine wakes \cite[pg.3]{mehtaLargeEddySimulation2014}.
+
+\term{Power controller} 
+Seems to be something relating to constant versus variable speed operation. In
+\cite{bretonSurveyModellingMethods2017}, the authors describe a modeling
+approach with a constant tip-speed ratio as one with no power controller.
+
+\term{Local thrust coefficient, $C_T$}
+
+\term{Blockage effects}
+Mentioned in \cite{bempedelisDatadrivenOptimisationWind2024}.
+
+\subsection{Useful Facts}
+As of 2014, a ``normal separation for turbines on a modern wind farm'' is
+roughly $7-8D$ \cite[pg.4]{mehtaLargeEddySimulation2014}.
+
+The most important eddies to model accurately are those that are comparable
+with or larger than the turbine diameter $D$, and ones which are most
+responsible for the transport of mass, momentum, and energy
+\cite[pg.4]{mehtaLargeEddySimulation2014}.
+
+LES are preferable to engineering models because of their ability to
+``capture the transient evolution of turbulent eddies that are most relevant
+to wake development and power production'' \cite[pg.9]{mehtaLargeEddySimulation2014}.
+
+Field data is highly noisy due to the ``erratic nature of the atmosphere,''
+which may compromise the ability of engineering models to deliver reliable
+predictions in tail regimes like ``very large wind farms or inflow angles
+involving high number of wake interactions.''
+\cite[pg.15]{mehtaLargeEddySimulation2014}.
+
+As the grid resolution of an LES becomes coarser, the fidelity and accuracy of
+ABS and SGS modeling becomes more and more important
+\cite{mehtaLargeEddySimulation2014}.
+
+Thermal stratification in the ABL means that ``atmospheric gravity waves can be
+triggered above the ABL'' \cite{stipaTOSCAOpensourceFinitevolume2024}.
+
+It seems like we need to be very careful with periodic boundary conditions,
+because a potential concern is that wakes may be ``re-introduced into the
+domain'' \cite[pg.303]{stipaTOSCAOpensourceFinitevolume2024}.
+
+``Actuator disk theory tends to overestimate the power output of wind turbines
+at large yaw angles'' \cite[pg.878]{bempedelisDatadrivenOptimisationWind2024},
+which actually came from a 2019 Porte-Agel paper. Bempedelis is an advocate for
+actuator disk theory, nonetheless—the comment was included only as a nod to a reviewer.
+
+“The normalized velocity deficit in the turbine wakes has been observed to
+follow a self-similar Gaussian profile in several experimental and numerical
+research studies” \cite[pg.2]{niayifarAnalyticalModelingWind2016}.
+
+
+\subsection{Working Thoughts and Observations}
+It seems like we only care about modeling the far wake? Maybe we place turbines within $6D$
+of each other, but that does seem kind of close...
+
+Essentially the closer the turbines are together, the more accurately we want
+to model. In section 4.2.2 of \cite{mehtaLargeEddySimulation2014}, the authors
+describe a study that used the incredibly-expensive but more accurate
+``actuator line'' approach to model turbines since the spacing was roughly
+$4.3D$, which ``would require proper modelling of the near wake.''
+
+ABL modeling and potentially ``coupling'' with aeroelastic codes could be
+useful for modeling turbine loading in ``off-design conditions like non-neutral
+ABLs and gusts'' \cite{mehtaLargeEddySimulation2014}. This could maybe be useful
+if we're framing this paper as trying to accurately estimate annual energy production
+across a variety of historical wind conditions.
+
+It seems like there is some kind of ``inherent variability of LES,''
+\cite{bretonSurveyModellingMethods2017}, which reminds me of the phrase
+``time-averaged.'' Is there some kind of literature on the length of time one
+runs an LES for to determine a power production for a given wind speed? It seems like
+\cite{andersenQuantifyingVariabilityLarge2015} discusses this in detail.
+
+It seems like the idea of ABL modeling is because ``wind turbine wake recovery
+and thus power production are greatly influenced by background atmospheric
+turbulence'' \cite[pg.302]{stipaTOSCAOpensourceFinitevolume2024}.
+
+
+FRAMING: Loosely motivated by the results observed in
+\cite{bempedelisDatadrivenOptimisationWind2024}, where a wake model
+gradient-based optimization routine produced better results than an LES
+simulation in 30\% of runs, I'm curious about the idea of framing this paper in
+terms of LES checking the results of wake models. Especially since the actual
+efficiency predictions from wake models was so drastically different across
+FLORIS and LES, again in \cite{bempedelisDatadrivenOptimisationWind2024}
+
+TODO: Let's perform a detailed review of papers comparing the performance of
+wake models and LES simulations.
+
+\subsection{Question Log}
+\subsubsection{Research Directions}
+\begin{enumerate}
+    \item Can we model the effects of downstream dynamic loading on turbines
+        and their longevities? What have people done in the past? Can we
+        formulate this as a multi-objective optimization problem? Or by
+        reducing wake effects in general do we solve this inherently?
+    \item Can we take advantage of our knowledge about the kinds of eddies that are most
+        important to model correctly to specify more carefully the relationship
+        between multiple fidelities of wake models? Ie if we know that
+        an analytical approximation underestimates wake performance in a certain regime,
+        we can get a better sense for how the resulting observation might be biased?
+    \item Can we encourage the model to tune different parameters of the LES
+        or use different approximations based on the specific input case? Or is
+        that way too much effort?
+    \item On this note of tuning different parameters, can we take advantage of what we
+        know about the physical model to understand the BIAS or NOISE of certain
+        observation fidelities in different input regions? I.e. we might expect higher
+        noise or a certain bias direction in the LES model based on a function $g(X)$
+        defined on our configuration space, which returns the average separation
+        between turbines?
+    \item On this further note, is it worth also incorporating a RANS fidelity?
+        I guess to understand this, my main questions would be: how well
+        does RANS perform compared to LES? Like what are the real main disadvantages?
+        And what are the real computational advantages?
+    \item Can we take advantage of interesting \emph{mixed} approximations like
+        what is described in section 4.3 of
+        \cite{mehtaLargeEddySimulation2014}, which uses LES to improve simpler
+        models? Some keywords to look into here include a ``modified Frandsen's model''
+        and an ``LES generated transfer function.''
+    \item Is it worth incorporating different rotor dimensions? If I go the TURBO route
+        and try to make the case that BO is great in high-dimensional settings, it could
+        make sense. It could also add additional complexity and make it more difficult
+        to do anything interesting relating to the GP kernel.
+    \item Can we use a multi-output GP that gives us the wind speed at each turbine location
+        as our model? And then somehow average over the power productions at each location
+        in our acquisition function? This way we can maybe more carefully specify the bias
+        or variance of a given observation fidelity $f^{(m)}$?
+    \item Does it make sense to think about running multiple LESs in parallel
+        as well? Can we run one LES and one RANS in parallel? Or should we cap
+        it at one and use all available cores for parallelization of the actual LES
+        algorithm?
+    \item Can we adaptively select the temporal averaging window for a given simulation
+        to result in various levels of observation noise?
+\end{enumerate}
+
+\subsubsection{General/Empirical Questions}
+\begin{enumerate}
+    \item What is this concept of ``spanwise'' versus ``streamwise'' spacing?
+        Does it refer to different behavior in terms of the spacing of turbines
+        in directions parallel to versus perpendicular to the wind inflow
+        direction? How do existing BO studies handle this distinction
+        constraint-wise, if at all?
+    \item Should we use pseudo-spectral or finite-volume approaches? What are the advantages
+        and disadvantages of each?
+    \item What are the key ideas behind different wake models and their assumptions? Why do
+        people use the GCH model \cite{niayifarAnalyticalModelingWind2016}? Does it just empirically
+        work very well?
+    \item What is the actual variability of the simulations in a 50-turbine setting? Can we get
+        away with 10-minutes of wind farm time? Can we bound the variance of the estimations in those contexts?
+        Is there a burn-in period?
+\end{enumerate}
+
+\section{Literature Review}
+
+\subsection{Bayesian Optimization Methodology}
+
+\longcite{gonzalezBatchBayesianOptimization2016}
+\begin{itemize}
+    \item \textbf{Overview:} Proposes a new batch BO method based on a
+        Lipschitz assumption on the objective function. Uses the GP to infer
+        the Lipschitz constant. Greedily selects points within a batch by
+        penalizing the acquisition function away from previous points in the
+        batch. They base their penalization on the estimated Lipschitz
+        constant—specifically, the width of the downweighted region around a
+        previously-selected point $x_{t, i}$ is based on how close $x_{t, i}$
+        is believed to be to the optimum, which itself is derived from an estimate of
+        the Lipschitz constant.
+    \item \textbf{Strong points:} 
+        \begin{itemize}
+            \item Gradient of the penalized acquisition function available in closed form.
+        \end{itemize}
+    \item \textbf{Weak points:} 
+    \begin{itemize}
+        \item Assumes that the kernel function $K$ is twice-differentiable, in
+            order to estimate the Lipschitz constant.
+        \item Assumes that the function is Lipschitz homoskedastic, i.e. that
+            the Lipschitz constant of the function is the same everywhere. The
+            authors note that the method can be extended to cases where a local Lipschitz
+            constant is estimated, but they don't expand on it.
+    \end{itemize}
+    % \item \textbf{Methodological details:} 
+    % \begin{itemize}
+    % \end{itemize}
+    \item \textbf{Empirical results:}
+        % \begin{itemize}
+        %     \item Finds a rational quadratic kernel to outperform both a Matern
+        %         and squared exponential, where by performance they mean extrapolation performance
+        %         on heldout test points.
+        %     \item They find that roughly 30\% of the layout designs found by the analytical wake model
+        %         outperform their solution using BO and the LES.
+        %     \item They also do find that LES outperforms FLORIS in the wake-steering task,
+        %         however.
+        %     \item FLORIS underpredicts efficiency compared to the true
+        %         efficiencies calculated by LES.
+        % \end{itemize}
+    \item \textbf{Takeaways:}
+\end{itemize}
+
+
+\subsection{Wind Farm Optimization}
+
+\longcite{bempedelisDatadrivenOptimisationWind2024}
+
+\begin{itemize}
+    \item \textbf{Overview:} Applies Bayesian optimization with LES and
+        analytic wake models to maximize power production in both micro-siting
+        and wake steering tasks. Doesn't do anything truly multi-fidelity.
+    % \item \textbf{Strong points:} 
+    %     \begin{itemize}
+    %         \item Allows for \emph{variable numbers of turbines}, with a novel set kernel function
+    %         \item Considers \emph{variability in wind speed and direction}. Models power output as an expectation over $p(v, \theta)$, a
+    %             joint distribution over wind speed and direction taken from
+    %             historical data, estimated using Kernel Density Estimation.
+    %     \end{itemize}
+    % \item \textbf{Weak points:} 
+    % \begin{itemize}
+    % \end{itemize}
+    \item \textbf{Methodological details:} 
+    \begin{itemize}
+        \item Smagorinsky SGS model and AD-NR method used, simulated using
+            Winc3D package \cite{deskosWInc3DNovelFramework2020}.
+        \item Precursor simulations of ``pressure-gradient-driven fully
+            developed neutral'' ABLs.
+        \item Enforces rotor spacing of $D$. Sets up a $18D \times 18D$ site,
+            with $N = 16$ turbines. Picks a $D = 100$m rotor diameter and $h =
+            100$m hub height. Assumes a constant local thrust coefficient $C_T'
+            = 4 / 3$.
+        \item \emph{BO parameters}: No observation noise. Lower confidence
+            bound acquisition function. Kernel hyperparameter search and
+            acquisition function maximization carried out with L-BFGS
+            algorithm. Batching with ``local penalization,'' as described in
+            \cite{gonzalezBatchBayesianOptimization2016}.
+        \item Evenly-weighted 6-directional wind rose.
+        \item Flow data are averaged over a 2.5h period of farm operation (pg.873).
+        \item They compare their framework, LES-BO, against a gradient-based
+            optimization strategy using the ``Gauss-curl hybrid'' wake model from the FLORIS
+            package. The gradient-based optimization strategy relies on what appears to be
+            a convergence tolerance threshold, which means it's unclear
+            how many evaluations the FLORIS strategy had compared to the LES-BO model.
+            A good question to ask the authors.
+        \item Simulation costs ranged between 300-900 CPU hours, performed in
+            parallel on 128 or 256 cores.
+    \end{itemize}
+    \item \textbf{Empirical results:}
+        \begin{itemize}
+            \item Finds a rational quadratic kernel to outperform both a Matern
+                and squared exponential, where by performance they mean extrapolation performance
+                on heldout test points.
+            \item They find that roughly 30\% of the layout designs found by the analytical wake model
+                outperform their solution using BO and the LES.
+            \item They also do find that LES outperforms FLORIS in the wake-steering task,
+                however.
+            \item FLORIS underpredicts efficiency compared to the true
+                efficiencies calculated by LES.
+        \end{itemize}
+    \item \textbf{Takeaways:} The performance from the FLORIS wake model simulation is
+        maybe not the best sign for the importance of including LES observations. To truly
+        understand the cause of the performance difference, however, I want to go into
+        their Appendix B and understand how many samples and how many evaluations were used
+        for each. Because if the FLORIS approach has far more evaluations available, this
+        is maybe not a fair comparison. Could be that optimizing gradients over the analytical
+        wake model is likely to result in many local optima.
+\end{itemize}
+
+\longcite{chughWindFarmLayout2022}
+
+\begin{itemize}
+    \item \textbf{Overview:}
+        Applies multi-objective BO with objectives of wind farm power output
+        and turbine cost, using expected hypervolume improvement as the
+        acquisition function. Formulates the problem as a \emph{set-valued} search space,
+        defining a custom kernel over collections of turbine location coordinates and
+        enabling search over variable numbers of turbines.
+    \item \textbf{Strong points:} 
+        \begin{itemize}
+            \item Allows for \emph{variable numbers of turbines}, with a novel set kernel function
+            \item Considers \emph{variability in wind speed and direction}. Models power output as an expectation over $p(v, \theta)$, a
+                joint distribution over wind speed and direction taken from
+                historical data, estimated using Kernel Density Estimation.
+        \end{itemize}
+    \item \textbf{Weak points:} 
+    \begin{itemize}
+        \item Only considers the Jensen model, with \emph{no large-eddy simulations}.
+        \item Discretizes the space of possible turbine locations in the acquisition function to a 20x20 grid.
+    \end{itemize}
+    \item \textbf{Interesting details:} 
+    \begin{itemize}
+        \item Maximizes EHVI using a genetic algorithm.
+        \item Sets minimum distance between turbines as 3 times rotor diameter.
+    \end{itemize}
+\end{itemize}
+
+
+\longcite{hoekPredictingBenefitWake2020}
+
+\begin{itemize}
+    \item \textbf{Overview:}
+    \item \textbf{Strong points:} 
+        \begin{itemize}
+            \item Incorporates a \emph{time-varying} wind direction, defining power output as the
+                weighted average over the mean direction $\mu$, as well as $\mu \pm 3^\circ$ and $\mu \pm 6^\circ$
+        \end{itemize}
+    \item \textbf{Weak points:} 
+    \begin{itemize}
+        \item 
+    \end{itemize}
+    \item \textbf{Interesting details:} 
+    % \begin{itemize}
+    % \end{itemize}
+\end{itemize}
+
+
+\subsection{LES Surveys}
+
+\longcite{mehtaLargeEddySimulation2014}
+\begin{itemize}
+    \item \textbf{Overview:} Summary of various LES implementations to model
+        wind farm aerodynamics. Touches on a discussion for how to optimally use LES
+        and challenges of such models.
+    \item \textbf{Details:} 
+    \begin{itemize}
+        \item So-called engineering models are simulations using ``basic
+            principles of physics and empirically established approximations.''
+            They cannot account for phenomena like ``wake meandering...a
+            turbine's response to partial wake interaction...'' etc. Generally, the models
+            used in practice focus on modeling the \emph{far-wake}, and many resolve turbulence
+            using Reynolds-averaged Navier-Stokes models, which have constants that need
+            to be empirically specified using real aerodynamic data.
+        \item The two key factors of a wake from a turbine are the ``velocity deficit,''
+            the reduction in wind velocity due to the energy extracted by the turbine,
+            and the ``added turbulence intensity,'' the increase in turbulence
+            of the flow within a wake. The velocity deficit reduces the power that downstream
+            turbines can generate. The added turbulence intensity increases the ``dynamic loading''
+            of downstream turbines, reducing their longevity.
+        \item Generally the wake of a turbine is considered as two regions, near and far.
+            The near wake is immediately behind the turbine, and the key factor is the
+            velocity deficit, which ``attains its maximum value between $1D$ and $2D$,''
+            where $D$ is the turbine rotor diameter. In this region, the key
+            influencing factors are the design of a turbine and its loading (what?).
+            The near wake generally ends between $2D$ and $4D$.
+        \item The velocity deficit is generally negligible beyond $10D$ but increased turbulence
+            intensity is sensible up to at least $15D$.
+        \item Wind turbine and wake flow modeling is a regime well-suited for
+            incompressible Navier-Stokes. ``Widely accepted that the
+            incompressible form of the NS equations can model the flow around a
+            wind turbine and in its wake.'' (page 2)
+        \item Wind turbine wakes are high-Reynolds number flows, which make
+            direct numerical simulation using Navier-Stokes infeasibly
+            expensive. This is because higher Reynolds number flows means
+            shorter and shorter length scales of eddies, meaning the overall
+            range of possible eddy scales grows larger. (page 3)
+        \item The main paradigm for studying turbulence involve some kind of
+            statistical averaging, removing certain length and time scales. But
+            the problem is underdetermined, known as the ``closure problem,''
+            leading to different mathematical models for the flow. This is the origin
+            of RANS and LES.
+        \item The Reynolds Stress model, which does not make the isotropy
+            assumption of most RANS models, ``provides the most reliable
+            results in both the near and the far wake,'' among far wake models. It
+            does underpredict velocity deficit in the near wake, however (page 4).
+        \item Engineering models perform poorly for a single ``inflow angle''
+            but do better when averaged across multiple angles. The poor single
+            direction performance ``stems from the combination of innacurate turbulence
+            and ABL modelling, tuning with limited field data, and the inability to resolve the
+            flow in case of multiple turbine-wake or wake-wake interactions.''
+        \item Argues that industry needs ``detailed knowledge on the
+            performance of wind turbines post-deployment'' in ``off-design''
+            regimes, like with gusts or atmospheric stratification.
+        \item A common class of ``eddy-viscosity'' SGS models, those derived
+            from ``Smagorinsky's model,'' make a certain assumption on the
+            alignment between the strain rate and subgrid tensors, which is
+            unsupported by numerical simulation data. Other models like the
+            ``Scale Similarity Model'' and derivatives like the ``Mixed SSM''
+            do not make this assumption.
+        \item Wind turbines are usually modeled using \emph{actuator methods} instead
+            of direct methods, which are computationally expensive.
+        \item ``Energy-conserving schemes'' are flagged as promising, being free from ``numerical dissipation''
+            and the requirement to use ``periodic boundaires,'' but are noted as requiring further study.
+            I'm curious whether these have been looked into further as of 2024.
+        \item Another open-ish question from this paper is the best way to handle boundary conditions
+            with the ABL. Not sure what this means, but a keyword is ``Monin-Obukov's approach,''
+            which is flagged as being ``unsuitable for LES.'' Other approaches are briefly
+            alluded to, but the authors note that more experiments are necessary.
+        \item Empirical results:
+            \begin{itemize}
+                \item The AD-NR actuator disk method is ``suitable and faster'' compared
+                    to the more expensive AD-R method (which incorporates ``tangential forces'')
+                    if ``one aims to analyze only the power produced and if turbines are separated
+                    by at least 5D to 7D'' (pg.4)
+            \end{itemize}
+    \end{itemize}
+\end{itemize}
+
+\longcite{bretonSurveyModellingMethods2017}
+\begin{itemize}
+    \item \textbf{Overview:} Survey of common schemes for modeling rotor,
+        atmospheric conditions, and terrain effects within LES implementations
+        as of 2017. Not as focused on the CFD methods. Also summarizes
+        experimental research data available for validating LES
+        implementations.
+    \item \textbf{Details:} 
+    \begin{itemize}
+        \item Argues that the most practical concern for wind farm simulations is to understand
+            the ways that ``wake effects alter turbine loading and power extraction and
+            how such effects are influenced by atmosphereic conditions and topography.''
+        \item Alternatives to LES models include ``engineering models''
+            (analytic wake models?), computations solving the Reynolds-averaged
+            Navier-Stokes (RANS) equations, and direct numerical simulations.
+            Direct numerical simulations are too expensive to use, they argue.
+            And apparently, RANS-based models are ``known to depend on the choice
+            of turbulence closure models'' and they can only provide limited
+            information about the ``inherently unsteady processes underlying wake phenomena''
+            because of their time-averaged formulation.
+        \item There are multiple ways to computationally solve the filtered Navier-Stokes equations
+            within LESs, including finite difference, finite volume, or pseudo-spectral.
+        \item Supports the idea of including some component of aeroelastic
+            coupling. ``Considering aeroelastic effects is essential when
+            simulating multi-megawatt turbines; the assumption of small blade
+            deformations...loses accuracy with increasing blade size.'' (pg.15).
+            Keyword: FAST for the coupled aeroelastic model.
+        \item Advocates for AD+R approaches to modeling turbine rotor as a good
+            balance of cost-effectiveness for modeling far wakes and wake
+            interactions. Probably the regime we're in for power production modeling.
+        \item Notes the importance of the use of a ``power controller to actively determine
+            the rotational speed of the rotors.''
+        \item There is no definitive best approach between synthetic and precursor LES modeling
+            for the ABL.
+    \end{itemize}
+\end{itemize}
+
+\subsection{LES Implementations}
+
+\longcite{deskosWInc3DNovelFramework2020}
+
+\begin{itemize}
+    \item \textbf{Overview:}
+        % \item \textbf{Strong points:} 
+    %     \begin{itemize}
+    %     \end{itemize}
+    % \item \textbf{Weak points:} 
+    % \begin{itemize}
+    %     \item 
+    % \end{itemize}
+    \item \textbf{Details:} 
+    \begin{itemize}
+        \item Finite-difference discretization.
+        \item Uses the Smagorinsky SGS model, with some Mason-Thomson correction (not sure
+            if this is standard or not).
+    \end{itemize}
+    \item \textbf{Claims:}
+        % \begin{itemize}
+        % \item Notes that industry primarily uses analytical, "reduced-order wake models"
+        %     to estimate annual energy production.
+        %     Cites \cite{nygaardLargescaleBenchmarkingWake2022} to argue that
+        %     these models struggle with reproducing wind farm blockage and
+        %     farm-farm wake interactions.
+        % \item Notes that "only a few" existing LES implementations can tackle
+        %     ``gravity wave effects.''
+        % \item They argue that finite-volume approaches, by virtue of allowing for ``grid stretching,''
+        %     enable the resolution of larger domains with the same number of degrees of freedom
+        %     and also providing more ``geometric flexibility.''
+        % \end{itemize}
+\end{itemize}
+
+\longcite{stipaTOSCAOpensourceFinitevolume2024}
+
+\begin{itemize}
+    \item \textbf{Overview:} Open-source, finite-volume LES aimed at
+        large-scale studies of wind farm-induced gravity waves and the
+        interaction between cluster wakes and the atmosphere. Specifically
+        designed for LES of large finite wind farms.
+    % \item \textbf{Strong points:} 
+    %     \begin{itemize}
+    %     \end{itemize}
+    % \item \textbf{Weak points:} 
+    % \begin{itemize}
+    %     \item 
+    % \end{itemize}
+    \item \textbf{Details:} 
+    \begin{itemize}
+        \item Supports actuator line, ALM, actuator disk, ADM, and uniform
+            actuator disk, UAD methods. Presumably UAD is AD-NR, and ADM is
+            AD-R.
+        \item Finite-volume framework.
+        \item Supports a ``concurrent-precursor method,'' which tye argue may
+            not be available in other finite-volume solvers (even though it is
+            ``extensively used in pseudo-spectral methods.'').
+        \item Supports a ``sharp-interface immersed boundary method (IBM)''
+            that they argue allows for the simulation of moving objects and
+            complex terrain features.
+        \item Enforces a ``desired hub-height wind speed'' while avoiding ``inertial oscillations
+            produced by the Coriolis force above the boundary layer.'' No idea what this means.
+    \end{itemize}
+    \item \textbf{Claims:}
+        \begin{itemize}
+        \item Notes that industry primarily uses analytical, "reduced-order wake models"
+            to estimate annual energy production.
+            Cites \cite{nygaardLargescaleBenchmarkingWake2022} to argue that
+            these models struggle with reproducing wind farm blockage and
+            farm-farm wake interactions.
+        \item Notes that "only a few" existing LES implementations can tackle
+            ``gravity wave effects.''
+        \item They argue that finite-volume approaches, by virtue of allowing for ``grid stretching,''
+            enable the resolution of larger domains with the same number of degrees of freedom
+            and also providing more ``geometric flexibility.''
+        \end{itemize}
+\end{itemize}
+
+
+\newpage
+
+\printbibliography
+
+\end{document}
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: t
+%%% End:
+% fonts

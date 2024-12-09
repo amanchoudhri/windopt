@@ -1,0 +1,264 @@
+\documentclass[12pt]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[full]{textcomp}
+\usepackage{newtxtext}
+\usepackage{cabin} % sans serif
+\usepackage[varqu,varl]{inconsolata} % sans serif typewriter
+\usepackage[final,expansion=alltext]{microtype}
+\usepackage[english]{babel}
+\usepackage{amsmath}
+\usepackage[bigdelims,vvarbb]{newtxmath} % bb from STIX
+
+% geometry of the page
+
+\usepackage[top=1in,
+            bottom=1in,
+            left=1in,
+            right=1in]{geometry}
+
+% paragraph spacing
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{2ex plus 0.4ex minus 0.2ex}
+
+% useful packages
+
+\usepackage{epsfig}
+\usepackage{url}
+\usepackage{bm}
+\usepackage{blindtext}
+
+
+\begin{document}
+
+\begin{flushleft}
+\textbf{Plan: Multi-fidelity BO for Wind Farm Layout Optimization} \\
+Aman Choudhri (ac4972) \\
+\today
+\end{flushleft}
+
+
+\section{Setup}
+\subsection{Notation}
+Say we have a function $f_\text{LES}^{(T)} (X, \theta, v, \phi)$ to simulate
+the power output from an $N$-turbine wind farm over a $T$-minute duration,
+taking parameters:
+\begin{itemize}
+    \item $X \in \mathbb{R}^{N \times 2}$, a set of coordinate pairs representing the turbine locations,
+    \item $\theta \in \mathbb{R}^{N}$, a set of angles representing the
+        orientations of each turbine, in an appropriately defined coordinate system,
+    \item $v \in \mathbb{R}_{> 0}$, the incoming wind speed to the site,
+    \item $\phi \in \mathbb{R}$, the incoming wind angle to the site, again defined in
+        an appropriate coordinate system.
+\end{itemize}
+
+Following \cite{bempedelisDatadrivenOptimisationWind2024}, we'll assume that temporal windows
+larger than 2 hours, or $T \geq 120$, simply return to us the true power performance. Write
+this ``true'' power performance as $f_\text{LES}$, so
+\[
+    f_\text{LES} \coloneq f_\text{LES}^{(T)}, \quad \text{for \ } T \geq 120
+.\]
+
+Since evaluations of $f_\text{LES}$ are expensive, we also have access to a
+variety of cheap analytic approximations, $f_{\text{approx}}^{(m)}$, for $m =
+1,\ldots , M$. We'd like to place minimal assumptions on the correctness of
+these low-fidelity observations.
+
+Finally, we might also be interested in obtaining observations that are
+higher-quality than $f^{(m)}_\text{approx}$ but cheaper than $f_\text{LES}$. To
+get these, we can run shorter simulations $f^{(T)}_\text{LES}$ for smaller $T$.
+It seems reasonable to model these fidelities as unbiased relative to
+$f_\text{LES}$, but with noise levels dependent on $T$.
+
+\subsection{Wind Farm Optimization}
+In the most common case, we want to maximize average-case performance under some historical
+distribution of wind speeds and directions, $p(v, \phi)$:
+\begin{align*}
+    \text{maximize}_{X, \theta}& \quad \mathbb{E}_{p(v, \phi)}[f_\text{LES}(X, \theta, v, \phi)] \\
+    \text{s.t.}& \quad g(X) > c
+,\end{align*}
+where $g(X) > c$ is a feasibility constraint, bounding below by $c$ the
+distance between each turbine in configuration $X$.
+
+We might also consider fixing a condition $(v, \phi)$ ahead of time and
+optimizing for that condition only. This condition might represent a best or
+worst-case scenario.
+
+
+\section{Methodology}
+
+\subsection{Large Eddy Simulations}
+There are several open-source large eddy simulation software packages available online.
+
+The package \texttt{WInc3D} \cite{deskosWInc3DNovelFramework2020} has been used
+in \cite{bempedelisDatadrivenOptimisationWind2024,
+moleMultiFidelityBayesianOptimisation2024}. A newer package, \texttt{TOSCA}
+\cite{stipaTOSCAOpensourceFinitevolume2024}, was released four years later in
+2024, with more of a focus on modeling ``gravity waves.'' It does seem like \texttt{WInc3D}
+is the smart choice here, though, since both BO papers I've looked at use it.
+
+\subsection{Analytic Wake Models}
+
+Analytic wake models are often implemented in the open-source package
+\texttt{FLORIS} \cite{mudafortNRELFlorisV4212024}.
+
+The Gauss-curl hybrid (GCH) model \cite{niayifarAnalyticalModelingWind2016}
+seems to be the standard model for this application, being used in
+\cite{moleMultiFidelityBayesianOptimisation2024,
+bempedelisDatadrivenOptimisationWind2024}.
+
+\subsection{Optimization Procedure}
+
+Asynchronous batch BO with multiple fidelities: \cite{folchCombiningMultiFidelityModelling2023}.
+This paper would work for everything, except anything about constituent evaluations.
+
+\section{Experiments}
+
+\subsection{Proof of Concept}
+
+\subsection{Horns Rev}
+
+This is a large offshore wind farm, consisting of 80 turbines in an 8x10 grid with a spacing
+between each turbine of $7D$.
+
+In \cite{moleMultiFidelityBayesianOptimisation2024}, the authors optimized the
+yaw angles of each row of turbines. They used the following configurations:
+\begin{itemize}
+    \item LES configuration:
+        \begin{itemize}
+            \item Uniform grid of size $74D \times 500m \times 7D$.
+            \item Grid spacing of $D / 10$ in each spatial direction.
+            \item Power output averaged over 2hrs, timestep of 0.2 seconds.
+            \item Third-order Adams-Bashforth time advancement.
+            \item Grid scale filter coefficient of $\alpha_\text{filter} = 0.49$.
+            \item ABL parameters:
+                \begin{itemize}
+                    \item Friction velocity $u^* = 0.442 m / s$
+                    \item Boundary layer height of $\delta = 504m$
+                    \item Roughness length $z_{0} = 0.05m$
+                \end{itemize}
+        \end{itemize}
+    \item BO configuration:
+        \begin{itemize}
+            \item Latin hypercube sampling with 100 low-fidelity and 12
+                high-fidelity configurations.
+            \item UCB acquisition function
+            \item Multi-fidelity GP using ``NARGP'' models.
+        \end{itemize}
+\end{itemize}
+
+I have essentially four novel-ish ideas or contributions. Here's a draft motivation.
+
+The cost of wind farm energy depends on the annual energy production (AEP) metric, which
+necessitates studying wind farm performance in a variety of wind speed and direction conditions,
+not just the optimal environment. Calculating the performance of a given wind farm layout in
+multiple conditions, however, requires re-running the expensive large eddy simulations for
+each wind speed and direction. Optimizing wind farm configurations for a variety of wind farm
+conditions, then, is computationally prohibitive.
+
+In this paper, we take advantage of the ``grey-box'' Bayesian optimization literature on
+``constituent evaluations'' to address this problem and allow for the optimization of
+wind farm configurations with average-case performance as an objective.
+
+To further reduce the computational burden of running multiple high-fidelity LESs,
+we introduce a novel (to our knowledge) multiple-fidelity formulation of a large-eddy simulation
+that allows an optimization routine to adaptively select the temporal window over which
+wind farm power production is averaged and calculated. This gives the routine the option of obtaining
+cheaper, noisier evaluations from a large eddy simulation; such an option may be desirable,
+especially when trying to quickly understand the average-case performance of a given configuration,
+if more precision than an analytical wake model approximation is required.
+
+We expect the benefits of considering average-case performance to be most
+noticeable when we are jointly optimization wind farm layout and orientation,
+since the performance of a wake-steered wind farm is likely highly dependent on
+the incoming wind direction. To simplify the computational burden of the
+higher-dimensional optimization problem, we'll use trust regions.
+
+\subsection{Extension of \cite{moleMultiFidelityBayesianOptimisation2024}}
+In \cite{moleMultiFidelityBayesianOptimisation2024}, the authors solve the
+wake-steering problem in a multi-fidelity manner. They use a GCH model as
+low-fidelity option, and a \texttt{WInc3D} simulation as the high-fidelity option.
+
+Questions relative to this paper:
+\begin{itemize}
+    \item Is the NARGP prior really necessary?
+    \item Do we save any computation by using a shorter temporal averaging window?
+    \item Do we lose any performance in doing so?
+\end{itemize}
+
+\subsection{Compare to \cite{bempedelisDatadrivenOptimisationWind2024}}
+\subsection{Whole Boy}
+
+Jointly solving wake steering and micro-siting.
+
+%
+% There are a variety of strategies to calculate or simulate the wake pattern and
+% power performance of a wind farm given the layout of its turbines. The gold
+% standard for wake prediction arises from an expensive computational fluid
+% dynamics technique known as large-eddy simulation (LES)
+% \cite{niayifarAnalyticalModelingWind2016}. Given the cost of running such
+% simulations, many authors have proposed cheaper, analytical approximations. One
+% commonly used strategy is the Jensen model
+% \cite{jimenezApplicationTechniqueCharacterize2010}, for example. But as described
+% in \cite{bliekEXPObenchBenchmarkingSurrogatebased2023}, even one run of the cheaper
+% Jensen model calculation may take up to 15 seconds on a CPU.
+%
+% The high computational cost of even the cheap analytic approximations has made wind
+% farm layout optimization a suitable candidate for Bayesian Optimization (BO).
+% In \cite{chughWindFarmLayout2022}, for example, the authors introduce a
+% set-valued Gaussian Process surrogate model and apply expected hypervolume
+% improvement to learn layout configurations along the performance/cost Pareto
+% frontier. More recent papers \cite{bempedelisDatadrivenOptimisationWind2024}
+% \cite{moleMultiFidelityBayesianOptimisation2024} incorporate the
+% higher-fidelity expensive LES model into optimization routines, but focusing primarily
+% on the related problem of optimizing the \emph{angles} of turbines in fixed locations.
+%
+% In this project, I propose a BO approach that takes into account multiple
+% approximation schemes along with the expensive LES procedure. Specifically, I
+% aim to apply asynchronous multi-fidelity batch Bayesian optimization, as
+% described in \cite{folchCombiningMultiFidelityModelling2023}, to the wind farm
+% layout optimization problem. The setup of that paper is as follows.
+%
+% Multi-fidelity optimization is conceptually simple. Assume we have $1, \ldots,
+% M$ auxiliary functions $f^{(m)}$ that approximate the function we care about,
+% $f$, with varying fidelities. Each auxiliary function has a fixed known
+% evaluation cost, $C^{(m)}$. Either using independent GP surrogates or one joint
+% multi-output GP (MOGP), we learn a model of the objective values which we then
+% use in BO. At each step of the optimization procedure, then, we simply select
+% an input location $x$ and a fidelity $m$ to obtain an observation $f^{(m)}(x)$.
+%
+% In \cite{folchCombiningMultiFidelityModelling2023}, the authors note that
+% higher fidelity observations may take \emph{far longer} to obtain. We may want
+% to continue querying from lower-fidelity observations \emph{while} we wait for
+% the higher fidelity observation. 
+%
+% They posit a fixed computational bandwidth
+% $\Lambda$, and assign each fidelity a batch space parameter $\lambda^{(m)}$
+% that indicates how much of the compute bandwidth is taken up at one time. At
+% each timestep, then, we may obtain values from the previous timestep with
+% cheaper observations, or many timesteps before, in the case of more expensive
+% observations. To solve this problem, they apply Thompson Sampling to perform
+% batch BO, and use either an upper confidence bound variant or the expected
+% information gain to select the fidelity of the following observation.
+%
+% In the context of the wind farm problem, I propose to use two auxiliary
+% functions. The Jensen approximate analytical model as the low-fidelity
+% auxiliary, and the Winc3D large-eddy simulation as the expensive, high-fidelity
+% auxiliary \cite{deskosWInc3DNovelFramework2020}, following
+% \cite{moleMultiFidelityBayesianOptimisation2024}. The input space will be
+% ``configuration sets'', following \cite{chughWindFarmLayout2022}, which are a
+% collection of coordinate locations for the turbines in a layout.
+
+\newpage
+
+\bibliographystyle{plain}
+\bibliography{references.bib}
+
+\end{document}
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: t
+%%% End:
+% fonts

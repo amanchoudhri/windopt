@@ -1,0 +1,123 @@
+\documentclass[12pt]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[full]{textcomp}
+\usepackage{newtxtext}
+\usepackage{cabin} % sans serif
+\usepackage[varqu,varl]{inconsolata} % sans serif typewriter
+\usepackage[final,expansion=alltext]{microtype}
+\usepackage[english]{babel}
+\usepackage{amsmath}
+\usepackage[bigdelims,vvarbb]{newtxmath} % bb from STIX
+
+% geometry of the page
+
+\usepackage[top=1in,
+            bottom=1in,
+            left=1in,
+            right=1in]{geometry}
+
+% paragraph spacing
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{2ex plus 0.4ex minus 0.2ex}
+
+% useful packages
+
+\usepackage{epsfig}
+\usepackage{url}
+\usepackage{bm}
+\usepackage{blindtext}
+
+
+\begin{document}
+
+\begin{flushleft}
+\textbf{Project Proposal: Multi-fidelity BO for Wind Farm Layout Optimization} \\
+Aman Choudhri (ac4972) \\
+\today
+\end{flushleft}
+
+\vspace{0.1in}
+
+Wind farms are among the cleanest sources of energy, given their low greenhouse
+gas emissions and minimal water consumption \cite{chughWindFarmLayout2022}. One
+practical challenge with constructing and deploying wind turbines in practice,
+however, comes from the fact that turbines placed in nearby locations will
+affect each others' performance by altering the strength and turbulence of the
+wind. After wind passes through a turbine, it becomes weaker and more
+turbulent, which can lead to less power generation and higher fatigue on
+downwind turbines \cite{hellanBayesianOptimisationClimate2023}. The zone after a turbine
+in which the wind flow is disrupted is known as the \emph{wake}. Optimizing the
+layout of turbines given their wakes, then, is essential to the feasibility and performance of
+wind farm energy generation in practice.
+
+There are a variety of strategies to calculate or simulate the wake pattern and
+power performance of a wind farm given the layout of its turbines. The gold
+standard for wake prediction arises from an expensive computational fluid
+dynamics technique known as large-eddy simulation (LES)
+\cite{niayifarAnalyticalModelingWind2016}. Given the cost of running such
+simulations, many authors have proposed cheaper, analytical approximations. One
+commonly used strategy is the Jensen model
+\cite{jimenezApplicationTechniqueCharacterize2010}, for example. But as described
+in \cite{bliekEXPObenchBenchmarkingSurrogatebased2023}, even one run of the cheaper
+Jensen model calculation may take up to 15 seconds on a CPU.
+
+The high computational cost of even the cheap analytic approximations has made wind
+farm layout optimization a suitable candidate for Bayesian Optimization (BO).
+In \cite{chughWindFarmLayout2022}, for example, the authors introduce a
+set-valued Gaussian Process surrogate model and apply expected hypervolume
+improvement to learn layout configurations along the performance/cost Pareto
+frontier. More recent papers \cite{bempedelisDatadrivenOptimisationWind2024}
+\cite{moleMultiFidelityBayesianOptimisation2024} incorporate the
+higher-fidelity expensive LES model into optimization routines, but focusing primarily
+on the related problem of optimizing the \emph{angles} of turbines in fixed locations.
+
+In this project, I propose a BO approach that takes into account multiple
+approximation schemes along with the expensive LES procedure. Specifically, I
+aim to apply asynchronous multi-fidelity batch Bayesian optimization, as
+described in \cite{folchCombiningMultiFidelityModelling2023}, to the wind farm
+layout optimization problem. The setup of that paper is as follows.
+
+Multi-fidelity optimization is conceptually simple. Assume we have $1, \ldots,
+M$ auxiliary functions $f^{(m)}$ that approximate the function we care about,
+$f$, with varying fidelities. Each auxiliary function has a fixed known
+evaluation cost, $C^{(m)}$. Either using independent GP surrogates or one joint
+multi-output GP (MOGP), we learn a model of the objective values which we then
+use in BO. At each step of the optimization procedure, then, we simply select
+an input location $x$ and a fidelity $m$ to obtain an observation $f^{(m)}(x)$.
+
+In \cite{folchCombiningMultiFidelityModelling2023}, the authors note that
+higher fidelity observations may take \emph{far longer} to obtain. We may want
+to continue querying from lower-fidelity observations \emph{while} we wait for
+the higher fidelity observation. 
+
+They posit a fixed computational bandwidth
+$\Lambda$, and assign each fidelity a batch space parameter $\lambda^{(m)}$
+that indicates how much of the compute bandwidth is taken up at one time. At
+each timestep, then, we may obtain values from the previous timestep with
+cheaper observations, or many timesteps before, in the case of more expensive
+observations. To solve this problem, they apply Thompson Sampling to perform
+batch BO, and use either an upper confidence bound variant or the expected
+information gain to select the fidelity of the following observation.
+
+In the context of the wind farm problem, I propose to use two auxiliary
+functions. The Jensen approximate analytical model as the low-fidelity
+auxiliary, and the Winc3D large-eddy simulation as the expensive, high-fidelity
+auxiliary \cite{deskosWInc3DNovelFramework2020}, following
+\cite{moleMultiFidelityBayesianOptimisation2024}. The input space will be
+``configuration sets'', following \cite{chughWindFarmLayout2022}, which are a
+collection of coordinate locations for the turbines in a layout.
+
+\newpage
+
+\bibliographystyle{plain}
+\bibliography{references.bib}
+
+\end{document}
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: t
+%%% End:
+% fonts
