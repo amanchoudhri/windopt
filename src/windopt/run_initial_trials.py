@@ -43,10 +43,15 @@ if __name__ == "__main__":
         trial = pd.DataFrame([[power] + list(layout.flatten()) + [0]], columns=gch_trials.columns)
         gch_trials = pd.concat([gch_trials, trial], ignore_index=True)
 
-    # run 12 LES trials
+    # run 12 LES trials, using the small arena precursor planes
+    precursor_dir = project_root / "simulations" / "small_arena_precursor" / "out"
+    n_timesteps = 6000
+
     for i, layout in enumerate(les_small):
         job = start_les(
             run_name=f"initial_les_trial_{i}",
+            inflow_directory=precursor_dir,
+            inflow_n_timesteps=n_timesteps,
             locations=layout,
             debug_mode=True,
         )
