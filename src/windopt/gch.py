@@ -8,7 +8,9 @@ import numpy as np
 
 from floris import FlorisModel
 
-def gch(locations: np.ndarray, orientations: np.ndarray):
+import windopt
+
+def gch(locations: np.ndarray, yaws: np.ndarray):
     """
     Run the Gauss-Curl Hybrid wake model with FLORIS.
 
@@ -20,13 +22,14 @@ def gch(locations: np.ndarray, orientations: np.ndarray):
         powers: (N, ) array of turbine powers in Watts
     """
 
-    with resources.path("windopt.config", "gch_base.yaml") as base_cfg_path:
+    cfg_ptr = resources.files('windopt').joinpath('config/gch_base.yaml')
+    with resources.as_file(cfg_ptr) as base_cfg_path:
         model = FlorisModel(base_cfg_path)
 
     model.set(
         layout_x=locations[:, 0],
         layout_y=locations[:, 1],
-        yaw_angles=orientations,
+        yaw_angles=yaws,
     )
 
     model.run()

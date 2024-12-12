@@ -9,7 +9,7 @@ from typing import Optional, Union
 
 import pandas as pd
 
-from windopt.winc3d.io import parse_adm_file
+from windopt.winc3d.io import read_adm_file
 
 class LESJob:
     def __init__(self, slurm_job_id: int, job_dir: Path):
@@ -43,7 +43,7 @@ class LESJob:
         # parse each file and stack the results
         data = []
         for adm_file in adm_files:
-            data.append(parse_adm_file(adm_file))
+            data.append(read_adm_file(adm_file))
         return pd.DataFrame(data)
 
 
