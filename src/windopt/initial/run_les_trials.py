@@ -1,5 +1,5 @@
 """
-Queue initial trials for GCH and LES.
+Queue initial trials for LES.
 """
 
 from pathlib import Path
@@ -28,23 +28,23 @@ if __name__ == "__main__":
     n_turbines = gch_small.shape[1]
     layout_cols = [f"x{i}" for i in range(n_turbines)] + [f"z{i}" for i in range(n_turbines)]
 
-    gch_trials = []
-
-    for layout in gch_small:
-        # run 100 GCH trials
-        yaws = np.zeros((1,layout.shape[0]))
-        powers = gch(locations=layout, yaws=yaws)
-        power = powers.sum()
-
-        # flatten the layout in column-major order
-        # so we get x coords followed by z coords
-        print(layout.flatten('F'))
-
-        trial = pd.DataFrame([[power] + list(layout.flatten()) + [0]], columns=gch_trials.columns)
-        gch_trials = pd.concat([gch_trials, trial], ignore_index=True)
+    # gch_trials = []
+    #
+    # for layout in gch_small:
+    #     # run 100 GCH trials
+    #     yaws = np.zeros((1,layout.shape[0]))
+    #     powers = gch(locations=layout, yaws=yaws)
+    #     power = powers.sum()
+    #
+    #     # flatten the layout in column-major order
+    #     # so we get x coords followed by z coords
+    #     print(layout.flatten('F'))
+    #
+    #     trial = pd.DataFrame([[power] + list(layout.flatten()) + [0]], columns=gch_trials.columns)
+    #     gch_trials = pd.concat([gch_trials, trial], ignore_index=True)
 
     # run 12 LES trials, using the small arena precursor planes
-    precursor_dir = project_root / "simulations" / "small_arena_precursor" / "out"
+    precursor_dir = project_root / "simulations" / "small_arena_precursor" / "planes"
     n_timesteps = 6000
 
     for i, layout in enumerate(les_small):
@@ -53,6 +53,5 @@ if __name__ == "__main__":
             inflow_directory=precursor_dir,
             inflow_n_timesteps=n_timesteps,
             locations=layout,
-            debug_mode=True,
         )
-        print(job.slurm_job_id)
+        print(f"Queued LES, SLURM job id: {job.slurm_job_id}")
