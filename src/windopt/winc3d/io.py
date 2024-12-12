@@ -1,17 +1,14 @@
 """
-Run large-eddy simulations using SLURM.
+Read, write, and parse files for WInc3D.
 """
+
+from importlib import resources
 from pathlib import Path
 from typing import Optional
-from datetime import datetime
 
 import f90nml
 import numpy as np
-
-from constants import D, HUB_HEIGHT, SMALL_BOX_DIMS
-from slurm import SlurmConfig, submit_job
-
-PROJECT_ROOT = Path(__file__).parent.parent
+import pandas as pd
 
 def make_ad_file(
     locations: np.ndarray,
@@ -56,8 +53,8 @@ def make_in_file(
     Create the .in configuration file for a large-eddy simulation run.
     """
     # read the base .in file
-    BASE_CONFIG = PROJECT_ROOT / "config" / "les_base.in"
-    config = f90nml.read(BASE_CONFIG)
+    with resources.path("windopt.config", "les_base.in") as base_cfg_path:
+        config = f90nml.read(base_cfg_path)
 
     # x,y,z, box size
     config["FlowParam"]["xlx"] = box_size[0]
@@ -96,55 +93,8 @@ def make_in_file(
     outfile.parent.mkdir(parents=True, exist_ok=True)
     f90nml.write(config, outfile)
 
-
-def start_les(
-    run_name: str,
-    locations: np.ndarray,
-    rotor_diameter: float = D,
-    hub_height: float = HUB_HEIGHT,
-    box_size: tuple[float, float, float] = SMALL_BOX_DIMS,
-    slurm_config: Optional[SlurmConfig] = None
-    ) -> int:
+def read_adm_file(adm_file: Path):
     """
-    Start a large-eddy simulation run.
-
-    Parameters
-    ----------
-    run_name: str
-        The desired name of the run.
-    locations: np.ndarray
-        The x, z coordinates of the turbines, shape (n_turbines, 2).
-    rotor_diameter: float
-        The diameter of the turbines, in meters.
-    hub_height: float
-        The hub height of the turbines, in meters.
-    box_size: tuple[float, float, float]
-        The size of the simulation box, in meters.
-    slurm_config: Optional[SlurmConfig]
-        The SLURM configuration parameters.
-    
-    Returns
-    -------
-    int
-        The SLURM job ID of the submitted job.
+    Read a .adm file (really just a CSV).
     """
-    # create a directory in project_root/simulations for the run
-    # with a datetime string appended to the run name
-    dirname = f"{run_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-    outdir = PROJECT_ROOT / "simulations" / dirname
-
-    outdir.mkdir(parents=True, exist_ok=True)
-
-    turbines_file = outdir / "turbines.ad"
-    config_file = outdir / "config.in"
-
-    make_ad_file(locations, rotor_diameter, hub_height, turbines_file)
-    make_in_file(config_file, box_size=box_size)
-
-    # submit the job
-    if slurm_config is None:
-        slurm_config = SlurmConfig()
-
-    job_id = submit_job(config_file, working_dir=outdir, slurm_config=slurm_config)
-
-    return job_id
+    return pd.read_csv(adm_file)

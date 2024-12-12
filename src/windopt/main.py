@@ -24,7 +24,7 @@ from botorch.models.cost import FixedCostModel
 from botorch.models.gp_regression_fidelity import SingleTaskMultiFidelityGP
 from botorch.models.transforms.outcome import Standardize
 
-from gch import gch
+from windopt.gch import gch
 
 # Setup the cost model ---
 # Assume a fixed cost per fidelity for now. In the future, this can be extended
