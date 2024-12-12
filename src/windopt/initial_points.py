@@ -8,6 +8,8 @@ import numpy as np
 
 from scipy.stats.qmc import LatinHypercube
 
+from windopt.constants import D, SMALL_ARENA_DIMS, LARGE_ARENA_DIMS
+
 SEED = 2024
 
 def sample(arena_size: int, n_turbines: int, n_samples: int) -> np.ndarray:
@@ -24,17 +26,21 @@ def sample(arena_size: int, n_turbines: int, n_samples: int) -> np.ndarray:
 
 
 if __name__ == "__main__":
-    D = 126.4
     # small arena: 6D by 6D arena, 4 turbines.
     # large arena: 18D by 18D arena, 16 turbines.
     ARENA_NAMES = ["small", "large"]
-    ARENA_SIZES = [6 * D, 18 * D]
+    ARENA_SIZES = [SMALL_ARENA_DIMS[0], LARGE_ARENA_DIMS[0]]
     N_TURBINES = [4, 16]
     for arena_name, arena_size, n_turbines in zip(ARENA_NAMES, ARENA_SIZES, N_TURBINES):
         # sample 100 layouts to be evaluated using GCH
         gch_samples = sample(arena_size, n_turbines, n_samples=100)
+
         # 12 to be evaluated using large eddy simulations
-        les_samples = sample(arena_size, n_turbines, n_samples=12)
+        # Rescale ARENA_SIZE for les due to initial error in rotor diameter spec
+        OLD_ROTOR_DIAMTER = 126.4
+        RESCALE_FACTOR = OLD_ROTOR_DIAMTER / D
+        les_samples = sample(arena_size * RESCALE_FACTOR, n_turbines, n_samples=12)
+
         # to both, add a uniformly spaced grid layout
         ticks = np.linspace(0, arena_size, int(np.sqrt(n_turbines) + 1), endpoint=False)[1:]
         # Create a meshgrid of x,z coordinates
@@ -47,7 +53,7 @@ if __name__ == "__main__":
         les_samples = np.concatenate([les_samples, grid_layout], axis=0)
 
         # save to file
-        project_dir = Path(__file__).parent.parent
+        project_dir = Path(__file__).parent.parent.parent
         outdir = project_dir / "data" / "initial_points"
         outdir.mkdir(parents=True, exist_ok=True)
         
