@@ -85,7 +85,7 @@ def start_les(
 
     return job
 
-def process_results(job: LESJob):
+def process_results(job: LESJob) -> float:
     """
     Process the results of a LES job.
     """
