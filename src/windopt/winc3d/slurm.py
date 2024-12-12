@@ -74,6 +74,7 @@ def create_slurm_script(config: SlurmConfig) -> str:
 
 # Get the input file from command line argument
 INPUT_FILE=$1
+TURBINES_FILE=$2
 
 module load intel-parallel-studio/2020
 
@@ -83,14 +84,18 @@ export WINC3D=/moto/home/ac4972/WInc3D/winc3d
 mkdir -p out
 cd out
 
+ln -s $INPUT_FILE config.in
+ln -s $TURBINES_FILE turbines.ad
+
 ulimit -c 0
 
-mpiexec -bootstrap slurm -print-rank-map $WINC3D ${{INPUT_FILE}}
+mpiexec -bootstrap slurm -print-rank-map $WINC3D config.in
 """
 
 def submit_job(
     input_file: Path,
     working_dir: Path,
+    turbines_file: Optional[Path] = None,
     config: Optional[SlurmConfig] = None
 ) -> LESJob:
     """
@@ -124,7 +129,7 @@ def submit_job(
     
     # Submit the job
     result = subprocess.run(
-        ["sbatch", "--parsable", str(script_path), str(input_file)],
+        ["sbatch", "--parsable", str(script_path), str(input_file), str(turbines_file)],
         cwd=working_dir,
         capture_output=True,
         text=True,

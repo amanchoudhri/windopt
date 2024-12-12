@@ -66,7 +66,10 @@ def make_in_file(
         if n_turbines is None:
             raise ValueError("n_turbines must be provided when using ADM mode")
         config["ADMParam"]["iadm"] = 1
-        config["ADMParam"]["ADMcoords"] = str(path_to_ad_file)
+        # links only the filename since the fortran code has hard character
+        # limits. `slurm.py` will handle creating appropriate symbolic links in
+        # the working directory to the actual path
+        config["ADMParam"]["ADMcoords"] = path_to_ad_file.name
         config["ADMParam"]["Ndiscs"] = n_turbines
 
     if inflow_directory is not None:
@@ -78,7 +81,8 @@ def make_in_file(
         config["FlowParam"]["iin"] = 3
 
         # file params: point to inflow directory and ensure it can read the files
-        config["FileParam"]["InflowPath"] = str(inflow_directory)
+        # the fortran code requires a trailing slash
+        config["FileParam"]["InflowPath"] = f'{str(inflow_directory)}/'
         config["FileParam"]["NTimeSteps"] = inflow_n_timesteps
 
         # figure out how many files are in the inflow directory

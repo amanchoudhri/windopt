@@ -17,7 +17,7 @@ PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
 
 def start_les(
     run_name: str,
-    locations: np.ndarray,
+    locations: Optional[np.ndarray] = None,
     inflow_directory: Optional[Path] = None,
     inflow_n_timesteps: Optional[int] = None,
     rotor_diameter: float = D,
@@ -76,6 +76,11 @@ def start_les(
     if slurm_config is None:
         slurm_config = SlurmConfig()
 
-    job = submit_job(config_file, working_dir=outdir, config=slurm_config)
+    job = submit_job(
+        config_file,
+        working_dir=outdir,
+        turbines_file=turbines_file,
+        config=slurm_config
+        )
 
     return job
