@@ -76,6 +76,6 @@ def start_les(
     if slurm_config is None:
         slurm_config = SlurmConfig()
 
-    job = submit_job(config_file, working_dir=outdir, slurm_config=slurm_config)
+    job = submit_job(config_file, working_dir=outdir, config=slurm_config)
 
     return job

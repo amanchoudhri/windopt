@@ -53,7 +53,8 @@ def make_in_file(
     Create the .in configuration file for a large-eddy simulation run.
     """
     # read the base .in file
-    with resources.path("windopt.config", "les_base.in") as base_cfg_path:
+    cfg_ptr = resources.files('windopt').joinpath('config/les_base.in')
+    with resources.as_file(cfg_ptr) as base_cfg_path:
         config = f90nml.read(base_cfg_path)
 
     # x,y,z, box size
@@ -85,7 +86,7 @@ def make_in_file(
         config["FileParam"]["NInflows"] = n_files
         
     if debug_mode:
-        config["ilast"] = 1000
+        config["NumConfig"]["ilast"] = 1000
         print(config)
 
     # write the config to the file
