@@ -25,12 +25,12 @@
 ! Numerical Configuration
 &NumConfig
     ! Simulation size and parallelisation
-    nx=100                 ! X-direction nodes
-    ny=75                 ! Y-direction nodes
-    nz=84                  ! Z-direction nodes
+    nx=50                 ! X-direction nodes
+    ny=51                 ! Y-direction nodes
+    nz=36                  ! Z-direction nodes
 
     p_row=8               ! Row partition (y-axis)
-    p_col=24                ! Column partition (z-axis)
+    p_col=12                ! Column partition (z-axis)
 
     ! Boundary conditions and mesh 
     nclx = 0              ! nclx (BC)
@@ -41,7 +41,7 @@
 
     ! Time and time-marching schemes
     ifirst = 1            ! First iteration   
-    ilast =  72000        ! Last iteration (2.5hr)
+    ilast =  45000        ! Last iteration (2.5hr)
     nscheme = 2           ! Temporal scheme (1: ?, 2: RK3, 3:RK4, 4:AB2)
     dt = 0.2              ! Time step
     
@@ -62,7 +62,7 @@
 /End
 
 &StatParam
-    spinup_time=7200.	  ! Time after which statistics are collected (in seconds), so 2hr
+    spinup_time=1800.	  ! Time after which statistics are collected (in seconds), so 30min
     nstat=1               ! Size arrays for statistic collection 
     nvisu=1               ! Size for visualisation collection 
     iprobe = 0            ! Set probe
@@ -72,9 +72,9 @@
 
 &FileParam
     ilit=0             ! Read initial flow field ?
-    isave=10000        ! Frequency for writing backup file  
-    imodulo=10000      ! Frequency for visualization 
-    ioutflow=1		   ! Outflow flag
+    isave=50000        ! Frequency for writing backup file ( set to higher than ilast to save storage)
+    imodulo=40000      ! Frequency for visualization 
+    ioutflow=0		   ! Outflow flag
     NTimeSteps=6000
 /End
 
