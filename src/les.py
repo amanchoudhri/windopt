@@ -7,7 +7,6 @@ from datetime import datetime
 
 import f90nml
 import numpy as np
-import pyslurm
 
 from constants import D, HUB_HEIGHT, SMALL_BOX_DIMS
 from slurm import SlurmConfig, submit_job
@@ -98,21 +97,41 @@ def make_in_file(
     f90nml.write(config, outfile)
 
 
-def run_les(
+def start_les(
     run_name: str,
     locations: np.ndarray,
     rotor_diameter: float = D,
     hub_height: float = HUB_HEIGHT,
     box_size: tuple[float, float, float] = SMALL_BOX_DIMS,
     slurm_config: Optional[SlurmConfig] = None
-    ) -> pyslurm.Job:
+    ) -> int:
+    """
+    Start a large-eddy simulation run.
+
+    Parameters
+    ----------
+    run_name: str
+        The desired name of the run.
+    locations: np.ndarray
+        The x, z coordinates of the turbines, shape (n_turbines, 2).
+    rotor_diameter: float
+        The diameter of the turbines, in meters.
+    hub_height: float
+        The hub height of the turbines, in meters.
+    box_size: tuple[float, float, float]
+        The size of the simulation box, in meters.
+    slurm_config: Optional[SlurmConfig]
+        The SLURM configuration parameters.
+    
+    Returns
+    -------
+    int
+        The SLURM job ID of the submitted job.
+    """
     # create a directory in project_root/simulations for the run
-    outdir = PROJECT_ROOT / "simulations" / run_name
-    # if there already exists a directory for this run,
-    # append a datetime string to the run name
-    if outdir.exists():
-        run_name = f"{run_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        outdir = PROJECT_ROOT / "simulations" / run_name
+    # with a datetime string appended to the run name
+    dirname = f"{run_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    outdir = PROJECT_ROOT / "simulations" / dirname
 
     outdir.mkdir(parents=True, exist_ok=True)
 
@@ -126,6 +145,6 @@ def run_les(
     if slurm_config is None:
         slurm_config = SlurmConfig()
 
-    job = submit_job(config_file, working_dir=outdir, slurm_config=slurm_config)
+    job_id = submit_job(config_file, working_dir=outdir, slurm_config=slurm_config)
 
-    return job
+    return job_id

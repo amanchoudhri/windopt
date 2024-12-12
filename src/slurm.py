@@ -7,8 +7,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-import pyslurm
-
 @dataclass
 class SlurmConfig:
     account: str = "edu"
@@ -54,7 +52,7 @@ def submit_job(
     input_file: Path,
     working_dir: Path,
     config: Optional[SlurmConfig] = None
-) -> pyslurm.Job:
+) -> int:
     """
     Submit a SLURM job for the given input file.
     
@@ -69,8 +67,8 @@ def submit_job(
     
     Returns
     -------
-    pyslurm.Job
-        A SLURM job object that can be watched for completion.
+    int
+        The SLURM job ID of the submitted job.
     """
     if config is None:
         config = SlurmConfig()
@@ -92,6 +90,4 @@ def submit_job(
         text=True,
         check=True
     )
-    job_id = int(result.stdout.strip())
-    
-    return pyslurm.Job(job_id)
+    return int(result.stdout.strip())
