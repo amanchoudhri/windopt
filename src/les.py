@@ -7,6 +7,10 @@ from datetime import datetime
 
 import f90nml
 import numpy as np
+import pyslurm
+
+from constants import D, HUB_HEIGHT, SMALL_BOX_DIMS
+from slurm import SlurmConfig, submit_job
 
 PROJECT_ROOT = Path(__file__).parent.parent
 
@@ -97,9 +101,11 @@ def make_in_file(
 def run_les(
     run_name: str,
     locations: np.ndarray,
-    diameter: float,
-    hub_height: float
-    ):
+    rotor_diameter: float = D,
+    hub_height: float = HUB_HEIGHT,
+    box_size: tuple[float, float, float] = SMALL_BOX_DIMS,
+    slurm_config: Optional[SlurmConfig] = None
+    ) -> pyslurm.Job:
     # create a directory in project_root/simulations for the run
     outdir = PROJECT_ROOT / "simulations" / run_name
     # if there already exists a directory for this run,
@@ -110,5 +116,16 @@ def run_les(
 
     outdir.mkdir(parents=True, exist_ok=True)
 
-    make_ad_file(locations, diameter, hub_height, outdir / "turbines.ad")
-    make_in_file(outdir / "turbines.ad", outdir / "turbines.in", [4008, 750, 3340])
+    turbines_file = outdir / "turbines.ad"
+    config_file = outdir / "config.in"
+
+    make_ad_file(locations, rotor_diameter, hub_height, turbines_file)
+    make_in_file(config_file, box_size=box_size)
+
+    # submit the job
+    if slurm_config is None:
+        slurm_config = SlurmConfig()
+
+    job = submit_job(config_file, working_dir=outdir, slurm_config=slurm_config)
+
+    return job
