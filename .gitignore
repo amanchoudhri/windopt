@@ -1,0 +1,22 @@
+venv
+
+.DS_Store
+
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.egg-info
+*.egg
+*.dist-info
+
+*.log
+*.out
+*.err
+
+# LaTeX
+*.synctex.gz
+aux
+
+# data files
+data/initial_points
