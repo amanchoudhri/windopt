@@ -73,7 +73,7 @@
 &FileParam
     ilit=0             ! Read initial flow field ?
     isave=50000        ! Frequency for writing backup file ( set to higher than ilast to save storage)
-    imodulo=40000      ! Frequency for visualization 
+    imodulo=9000      ! Frequency for visualization (every 30min = 9000 timesteps)
     ioutflow=0		   ! Outflow flag
     NTimeSteps=6000
 /End
