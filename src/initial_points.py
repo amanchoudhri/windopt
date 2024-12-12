@@ -24,10 +24,11 @@ def sample(arena_size: int, n_turbines: int, n_samples: int) -> np.ndarray:
 
 
 if __name__ == "__main__":
+    D = 126.4
     # small arena: 6D by 6D arena, 4 turbines.
     # large arena: 18D by 18D arena, 16 turbines.
     ARENA_NAMES = ["small", "large"]
-    ARENA_SIZES = [6, 18]
+    ARENA_SIZES = [6 * D, 18 * D]
     N_TURBINES = [4, 16]
     for arena_name, arena_size, n_turbines in zip(ARENA_NAMES, ARENA_SIZES, N_TURBINES):
         # sample 100 layouts to be evaluated using GCH
