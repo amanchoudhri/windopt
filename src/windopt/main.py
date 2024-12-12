@@ -25,6 +25,9 @@ from botorch.models.gp_regression_fidelity import SingleTaskMultiFidelityGP
 from botorch.models.transforms.outcome import Standardize
 
 from windopt.gch import gch
+from windopt.constants import D, SMALL_ARENA_DIMS
+
+PROJECT_ROOT = Path(__file__).parent.parent.parent
 
 # Setup the cost model ---
 # Assume a fixed cost per fidelity for now. In the future, this can be extended
@@ -67,15 +70,8 @@ multi_fidelity_generation_strategy = GenerationStrategy(
 
 # setup the search space
 
-D = 126
-
-X_DIM = 18 * D
-Y_DIM = 750
-Z_DIM = 18 * D
-
-
-THETA_MIN = -40 # degrees
-THETA_MAX = 40 # degrees
+THETA_MIN = -40.0 # degrees
+THETA_MAX = 40.0 # degrees
 
 def turbine_parameters(
         N_turbines: int,
@@ -89,12 +85,12 @@ def turbine_parameters(
         params.append({
             'name': f'x{i}',
             'type': 'range',
-            'bounds': [0, X_DIM],
+            'bounds': [0.0, SMALL_ARENA_DIMS[1]],
         })
         params.append({
             'name': f'z{i}',
             'type': 'range',
-            'bounds': [0, Z_DIM],
+            'bounds': [0.0, SMALL_ARENA_DIMS[1]],
         })
         if optimize_angles:
             params.append({
@@ -148,6 +144,8 @@ def evaluate(parameterization) -> dict:
         ).reshape(1, -1)
 
     powers = gch(locations, orientations)
+    print(locations)
+    print(powers)
     # add random gaussian noise to the lower fidelity power
     # power is roughly on the order of 1-3 megawatts/turbine
     # so add noise on the order of 0.1 megawatts
@@ -185,20 +183,60 @@ def run(
         param_x='x1', param_y='z1'
     )
 
+def layout_to_params(layout: np.ndarray) -> dict:
+    """
+    Convert a layout to Ax parameters.
+    Parameters:
+        layout: np.ndarray of shape (N_turbines, 2) containing x,z coordinates
+    Returns:
+        dict: Combined dictionary of x and z parameters
+    """
+    return {
+        f'{dim}{i+1}': val 
+        for i, row in enumerate(layout)
+        for dim, val in zip(['x', 'z'], row)
+    }
+
+def load_initial_data(ax_client: AxClient, fidelity: str = 'gch'):
+    """
+    Load initial trial data into the AxClient.
+    """
+    if fidelity not in ['gch', 'les']:
+        raise ValueError(f"Fidelity must be 'gch' or 'les', not {fidelity}")
+
+    trial_points = np.load(PROJECT_ROOT / 'data' / 'initial_points' / f'small_arena_{fidelity}_samples.npy')
+    trial_values = np.load(PROJECT_ROOT / 'data' / 'initial_trials' / f'small_arena_{fidelity}_trials.npy')
+
+    for (layout, power) in zip(trial_points, trial_values):
+        # convert layout to x, z params for Ax
+        layout_params = layout_to_params(layout)
+        _, trial_index = ax_client.attach_trial(
+            parameters = {
+                **layout_params,
+                'fidelity': 0 if fidelity == 'gch' else 1,
+            }
+        )
+        ax_client.complete_trial(
+            trial_index=trial_index,
+            raw_data={'power': (power, 0.0)}
+        )
+
 
 if __name__ == '__main__':
-    OUTDIR = Path('/Users/amanchoudhri/aman/classes/snr-1/bayes-opt/turbine/campaigns')
+    outdir = PROJECT_ROOT / 'campaigns'
     # quick test experiment, 10 second budget
     experiment_name = 'test_noiseless_mf_setup'
-    experiment_directory = OUTDIR / experiment_name
+    experiment_directory = outdir / experiment_name
     experiment_directory.mkdir(parents=True, exist_ok=True)
 
     ax_client = create_multi_fidelity_experiment(
         experiment_name=experiment_name,
-        N_turbines=3,
+        N_turbines=4,
         optimize_angles=False,
     )
-    # load initial data so we don't need the Sobol generation step
-    # df = pd.read_csv(OUTDIR / 'test_mf_setup' / 'experiment.csv')
+
+    # load initial data
+    load_initial_data(ax_client, fidelity='gch')
+    load_initial_data(ax_client, fidelity='les')
 
     run(ax_client, budget=5 * 60 * 60, experiment_directory=experiment_directory)
