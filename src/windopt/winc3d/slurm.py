@@ -39,12 +39,16 @@ class LESJob:
         if not self.is_complete():
             return None
         # read *.adm files from the job out subdirectory
-        adm_files = self.job_dir.glob("discs_time[0-9]*.adm")
+        n_files = len(list(self.job_dir.glob("discs_time[0-9]*.adm")))
         # parse each file and stack the results
         data = []
-        for adm_file in adm_files:
-            data.append(read_adm_file(adm_file))
-        return pd.DataFrame(data)
+        for i in range(1, n_files + 1):
+            adm_file = self.job_dir / f'discs_time{i}.adm'
+            adm_info = read_adm_file(adm_file)
+            adm_info['filenumber'] = i
+            data.append(adm_info)
+            print(adm_info)
+        return pd.concat(data).reset_index(names='turbine')
 
 
 @dataclass
