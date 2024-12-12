@@ -84,3 +84,26 @@ def start_les(
         )
 
     return job
+
+def process_results(job: LESJob):
+    """
+    Process the results of a LES job.
+    """
+    if not job.is_complete():
+        raise ValueError("Job is not complete!")
+
+    power_data = job.turbine_results()
+
+    # HARDCODED VALUES
+    # TODO: make this dynamic
+    N_TIMESTEPS = 45000
+    SPINUP_TIMESTEPS = 9000
+    N_OUT_FILES = 5
+
+    # get the average farm power output after the spinup period, in watts
+    average_farm_power = power_data.loc[
+       (power_data['filenumber'] == N_OUT_FILES),
+       ['Power_ave']
+    ].sum() / (N_TIMESTEPS - SPINUP_TIMESTEPS)
+
+    return float(average_farm_power.iloc[0])

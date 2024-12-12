@@ -102,4 +102,6 @@ def read_adm_file(adm_file: Path):
     """
     Read a .adm file (really just a CSV).
     """
-    return pd.read_csv(adm_file, sep=', ')
+    return pd.read_csv(
+            adm_file, sep=', ', engine='python'
+            )

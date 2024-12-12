@@ -47,7 +47,6 @@ class LESJob:
             adm_info = read_adm_file(adm_file)
             adm_info['filenumber'] = i
             data.append(adm_info)
-            print(adm_info)
         return pd.concat(data).reset_index(names='turbine')
 
 
