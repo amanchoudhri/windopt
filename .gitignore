@@ -20,3 +20,6 @@ aux
 
 # data files
 data/initial_points
+
+# simulation files
+simulations
