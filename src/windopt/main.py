@@ -11,8 +11,9 @@ import numpy as np
 import pandas as pd
 
 from ax import (
-    Data, SearchSpace, RangeParameter, ParameterType, Metric, Runner, Trial, TrialStatus
+    Data, SearchSpace, RangeParameter, ParameterType, Metric, Runner, Trial
     )
+from ax.core.base_trial import TrialStatus
 from ax.core.metric import Metric, MetricFetchResult, MetricFetchE
 from ax.core.multi_type_experiment import MultiTypeExperiment
 
@@ -37,7 +38,7 @@ from botorch.models.transforms.outcome import Standardize
 
 from windopt.gch import gch
 from windopt.constants import D, SMALL_ARENA_DIMS
-from windopt.winc3d import run_les, process_results
+from windopt.winc3d import start_les, process_results
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 
