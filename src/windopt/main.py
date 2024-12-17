@@ -33,8 +33,8 @@ from windopt.gch import gch
 
 # A GCH simulation takes 0.01 seconds to run.
 GCH_COST = 0.01
-# A LES (with 30min spinup and 2hr averaging window) takes 1.25 hours to run.
-LES_COST = 1.25 * 60 * 60
+# A LES (with 30min spinup and 2hr averaging window) takes about 25 minutes to run.
+LES_COST = 25 * 60
 
 COSTS = torch.Tensor([GCH_COST, LES_COST])
 cost_model = FixedCostModel(COSTS)
