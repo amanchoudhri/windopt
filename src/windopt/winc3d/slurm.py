@@ -18,19 +18,24 @@ class LESJob:
 
     def _job_info(self) -> tuple:
         # Get information about the job using the `sacct` command.
-        # Example: sacct -j 19680110.0 -o JobID,State,ExitCode -n -P
-        job_step_0 = f'{self.slurm_job_id}.0'
+        # Example: sacct -j 19680110 -o JobID,State,ExitCode -n -P
         result = subprocess.run(
-            ["sacct", "-j", job_step_0, "-o", "Elapsed,State,ExitCode", "-n", "-P"],
+            ["sacct", "-j", self.slurm_job_id, "-o", "Elapsed,State,ExitCode", "-n", "-P"],
             capture_output=True,
             text=True,
             check=True
         )
-        return result.stdout.strip().split("|")
+        # get the first line of the output
+        main_info = result.stdout.split("\n")[0].split("|")
+        return main_info
 
     def is_complete(self) -> bool:
         info = self._job_info()
         return info[1] == "COMPLETED"
+
+    def status(self) -> str:
+        info = self._job_info()
+        return info[1]
 
     def turbine_results(self) -> Union[pd.DataFrame, None]:
         """
