@@ -39,8 +39,19 @@ def parse_inflow(inflow_path: Path, nt: int, ny, nz):
                 f"but received {len(data)}."
                 )
 
-    # Reshape into components
-    data = data.reshape(N_COMPONENTS, nt, ny, nz)
+    # The binary file contains 3 consecutive blocks of data (ux, uy, uz)
+    # Each block has size (ntimesteps * ny * nz) and is written in Fortran order
+    # We read each block separately and reshape to (nt, ny, nz) to preserve the correct data layout
+    plane_size = ny * nz
+    component_size = nt * plane_size
+
+    # Split into three velocity components
+    ux = data[0:component_size].reshape((nt, ny, nz), order='F')
+    uy = data[component_size:2*component_size].reshape((nt, ny, nz), order='F')
+    uz = data[2*component_size:3*component_size].reshape((nt, ny, nz), order='F')
+
+    data = np.stack((ux, uy, uz))
+
     return data
 
 def log_law(resolution: int = 1000, y_min: float = 10, abl_height: float = ABL_HEIGHT):
@@ -64,16 +75,16 @@ def plot_abl_profiles(y_coords, u_mean, y_log, u_log, TI):
     ax1.semilogx(y_coords, u_mean, 'ko', markerfacecolor='white', 
                  label='LES')
     
-    ax1.set_xlim(10, 500)
-    ax1.set_ylim(12, 26)
+    ax1.set_xlim(10, ABL_HEIGHT)
+    # ax1.set_ylim(0, 20)
     ax1.set_xlabel('z [m]')
-    ax1.set_ylabel(r'$\overline{u}/u^*$')
+    ax1.set_ylabel(r'$\overline{u} [m/s]$')
     ax1.legend()
     
     # Plot (b) - Turbulence intensity profile
     ax2.plot(TI, y_coords, 'ko', markerfacecolor='white')
-    ax2.set_ylim(0, 500)
-    ax2.set_xlim(0, 15)
+    ax2.set_ylim(0, ABL_HEIGHT)
+    # ax2.set_xlim(0, 15)
     ax2.set_xlabel('TI [%]')
     ax2.set_ylabel('z [m]')
     
@@ -82,6 +93,7 @@ def plot_abl_profiles(y_coords, u_mean, y_log, u_log, TI):
 
 def inflow_statistics(inflow: np.ndarray):
     # inflow is an array of shape [3, N_TIMESTEPS, ny, nz]
+    print(inflow.shape)
 
     # Calculate mean velocity profile (v at each height)
     u_mean = np.mean(inflow[0], axis=(0, 2))  # Average over time and z
@@ -138,7 +150,7 @@ if __name__ == "__main__":
         turbulence_profile.append(turbulence_intensity)
 
     velocity_profile = np.stack(velocity_profile).mean(axis=0)
-    turbulence_profile= np.stack(turbulence_profile).mean(axis=0)
+    turbulence_profile = np.stack(turbulence_profile).mean(axis=0)
 
     # Pick out the mean velocity and turbulence intensity at hub height
 
@@ -162,6 +174,15 @@ if __name__ == "__main__":
     # plot mean velocity and turbulence intensity at each height
     y_values, expected_velocities = log_law()
 
+    np.savez(args.inflow_dir / 'y_coords.npz', data=y_coords)
+    np.savez(args.inflow_dir / 'velocity_profile.npz', data=velocity_profile)
+    np.savez(args.inflow_dir / 'y_values.npz', data=y_values)
+    np.savez(args.inflow_dir / 'expected_velocities.npz', data=expected_velocities)
+    np.savez(args.inflow_dir / 'turbulence_profile.npz', data=turbulence_profile)
+
+    print(velocity_profile)
+    print(turbulence_profile)
+
     fig = plot_abl_profiles(
         y_coords,
         velocity_profile,
@@ -170,4 +191,4 @@ if __name__ == "__main__":
         turbulence_profile
     )
 
-    plt.savefig(args.inflow_dir / 'inflow_stats.png')
+    fig.savefig(args.inflow_dir / 'inflow_stats.png')
