@@ -12,7 +12,13 @@ from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 
-DEFAULT_DT = 0.2 # seconds
+from windopt.constants import HUB_HEIGHT
+
+DEFAULT_DT = 0.2         # seconds
+ABL_HEIGHT = 504.        # m
+U_STAR = 0.442           # m/s
+VON_KARMAN = 0.4         # dimensionless
+ROUGHNESS_LENGTH = 0.05  # m
 
 def get_inflow_path(idx: int, inflow_dir: Path):
     return f'{inflow_dir}/inflow{idx}'
@@ -29,7 +35,7 @@ def parse_inflow(inflow_path: Path, nt: int, ny, nz):
     if len(data) != total_expected:
         raise ValueError(
                 "Recieved a different number of elements than expected. "
-                f"Expected nt * ny * ny * components = {total_expected}, "
+                f"Expected nt * ny * nz * components = {total_expected}, "
                 f"but received {len(data)}."
                 )
 
@@ -37,78 +43,54 @@ def parse_inflow(inflow_path: Path, nt: int, ny, nz):
     data = data.reshape(N_COMPONENTS, nt, ny, nz)
     return data
 
-def calculate_abl_profiles(inflow, u_star, z0, kappa=0.4):
-    """Calculate ABL profiles from inflow data."""
-    # Domain setup
-    # Calculate grid points
-    dy = yly / ny
-    y_coords = np.linspace(dy/2, yly - dy/2, ny)
+def log_law(resolution: int = 1000, y_min: float = 10, abl_height: float = ABL_HEIGHT):
+    """
+    Calculate and return the theoretical log law wind speed profile.
+    """
+    y_log = np.logspace(
+        np.log10(y_min),
+        np.log10(abl_height),
+        resolution
+        )
+    u_log = (U_STAR / VON_KARMAN) * np.log(y_log / ROUGHNESS_LENGTH)
+    return y_log, u_log
+
+def plot_abl_profiles(y_coords, u_mean, y_log, u_log, TI):
+    """Create plots matching Bempedelis paper style."""
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5))
     
-    # Calculate mean velocity profile
+    # Plot (a) - Mean velocity profile
+    ax1.semilogx(y_log, u_log, '-k', label='Log law')
+    ax1.semilogx(y_coords, u_mean, 'ko', markerfacecolor='white', 
+                 label='LES')
+    
+    ax1.set_xlim(10, 500)
+    ax1.set_ylim(12, 26)
+    ax1.set_xlabel('z [m]')
+    ax1.set_ylabel(r'$\overline{u}/u^*$')
+    ax1.legend()
+    
+    # Plot (b) - Turbulence intensity profile
+    ax2.plot(TI, y_coords, 'ko', markerfacecolor='white')
+    ax2.set_ylim(0, 500)
+    ax2.set_xlim(0, 15)
+    ax2.set_xlabel('TI [%]')
+    ax2.set_ylabel('z [m]')
+    
+    plt.tight_layout()
+    return fig
+
+def inflow_statistics(inflow: np.ndarray):
+    # inflow is an array of shape [3, N_TIMESTEPS, ny, nz]
+
+    # Calculate mean velocity profile (v at each height)
     u_mean = np.mean(inflow[0], axis=(0, 2))  # Average over time and z
-    u_mean_normalized = u_mean / u_star
-    
-    # Calculate theoretical log law profile
-    y_log = np.logspace(np.log10(10), np.log10(500), 100)  # From 10m to 500m
-    u_log = (1/kappa) * np.log(y_log/z0)
-    
-    # Calculate turbulence intensity profile
+    # Calculate turbulence intensity profile (TI at each height)
     # Standard deviation at each height
     u_std = np.std(inflow[0], axis=(0, 2))
-    TI = (u_std / u_mean) * 100  # Convert to percentage
+    turbulence_intensity = (u_std / u_mean) * 100
 
-def inflow_statistics(inflow: np.ndarray, n, dims):
-    output = []
-    # Calculate some basic statistics
-    components_name = ['u', 'v', 'w']
-    for i, name in enumerate(components_name):
-        output += [
-            f"{name} component statistics:",
-            f"Min: {inflow[i].min()}",
-            f"Max: {inflow[i].max()}",
-            f"Mean: {inflow[i].mean()}",
-            f"Std: {inflow[i].std()}\n",
-        ]
-
-    nx, ny, nz = n
-    xlx, yly, zlz = dims
-
-    # Now calculate mean hub-height velocity and turbulence intensity
-
-    # Calculate grid spacing
-    dy = yly / ny
-
-    # Calculate y coordinates of cell centers
-    y_coords = np.linspace(dy/2, yly - dy/2, ny)
-
-    # Find index closest to hub height (90m)
-    hub_height = 90
-    hub_idx = np.abs(y_coords - hub_height).argmin()
-
-    # Extract u_x velocity component at hub height for all time and z
-    # inflow[0] is u_x component, shape is (nt, ny, nz)
-    u_x_hub = inflow[0, :, hub_idx, :]
-
-    # Calculate mean velocity at hub height
-    u_x_bar = np.mean(u_x_hub)
-
-    # Calculate turbulence intensity
-    # First get velocity fluctuations
-    u_x_fluctuations = u_x_hub - u_x_bar
-
-    # Calculate standard deviation and normalize by mean velocity
-    sigma_u = np.std(u_x_fluctuations)
-    TI = sigma_u / u_x_bar * 100  # Convert to percentage
-
-    output += [
-        f"Mean streamwise velocity at hub height: {u_x_bar:.2f} m/s",
-        f"Turbulence intensity at hub height: {TI:.1f}%\n",
-        ]
-
-    output = "\n".join(output)
-
-    # Plot convergence if matplotlib is available
-    return u_x_bar, TI, u_x_hub.mean(axis=-1), output
+    return u_mean, turbulence_intensity
 
 if __name__ == "__main__":
     p = ArgumentParser()
@@ -131,6 +113,7 @@ if __name__ == "__main__":
         n = (100, 75, 84)
         dims = (4008, 750, 3340)
 
+    _, yly, _ = dims
     _, ny, nz = n
 
     running_means = []
@@ -141,35 +124,50 @@ if __name__ == "__main__":
 
     get_num = lambda path: int(path.name.replace("inflow", ""))
 
-    ux_bars = []
-    TIs = []
+    velocity_profile = []
+    turbulence_profile = []
 
+    # Calculate mean velocity at hub height
     for inflow_path in sorted(inflow_paths, key=get_num):
         i = get_num(inflow_path)
         output.append(f'Inflow {i} --- {inflow_path}')
         inflow = parse_inflow(inflow_path, nt=args.nt, ny=ny, nz=nz)
-        u_x_bar, TI, means, out = inflow_statistics(inflow, n, dims)
-        ux_bars.append(u_x_bar)
-        TIs.append(TI)
-        output.append(out)
-        running_means.append(means)
 
-    print(np.mean(ux_bars))
-    print(np.mean(TIs))
+        u_mean, turbulence_intensity = inflow_statistics(inflow)
+        velocity_profile.append(u_mean)
+        turbulence_profile.append(turbulence_intensity)
+
+    velocity_profile = np.stack(velocity_profile).mean(axis=0)
+    turbulence_profile= np.stack(turbulence_profile).mean(axis=0)
+
+    # Pick out the mean velocity and turbulence intensity at hub height
+
+    # Calculate grid spacing
+    dy = yly / ny
+    # Calculate y coordinates of cell centers
+    y_coords = np.linspace(dy/2, yly - dy/2, ny)
+    # Find index closest to hub height
+    hub_idx = np.abs(y_coords - HUB_HEIGHT).argmin()
+
+    hub_velocity = velocity_profile[hub_idx]
+    hub_turbulence = turbulence_profile[hub_idx]
+
+    print(f"Mean streamwise velocity at hub height: {hub_velocity:.2f} m/s")
+    print(f"Turbulence intensity at hub height: {hub_turbulence:.1f}%")
 
     # make a new directory under img
     project_root = Path(__file__).parent.parent.parent
-    outdir = project_root / 'img' / f'precursor_{arena}'
+    outdir = project_root / 'img' / f'precursor_{args.arena}'
 
-    # with open(args.inflow_dir / 'inflow_stats.txt', 'w+') as f:
-    #     f.write("\n".join(output))
+    # plot mean velocity and turbulence intensity at each height
+    y_values, expected_velocities = log_law()
 
-    running_means = np.concatenate(running_means, axis=0)
-    time = np.arange(0, len(running_means)) * args.dt
-    plt.figure(figsize=(10, 5))
-    plt.scatter(time, running_means, s = 0.1)
-    plt.xlabel('Time step')
-    plt.ylabel('Running mean of u_x velocity')
-    plt.title('Convergence of Mean Velocity at Hub Height')
-    plt.grid(True)
-    plt.savefig(args.inflow_dir / 'running_means.png')
+    fig = plot_abl_profiles(
+        y_coords,
+        velocity_profile,
+        y_values,
+        expected_velocities,
+        turbulence_profile
+    )
+
+    plt.savefig(args.inflow_dir / 'inflow_stats.png')
