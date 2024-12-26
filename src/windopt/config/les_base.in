@@ -4,14 +4,16 @@
     iin = 1               ! Inflow conditions (1: classic, 2: turbinit)
     
     ! Domain and scaling
-    xlx = 4008            ! Lx (Size of the box in x-direction)
-    yly = 750             ! Ly (Size of the box in y-direction) 
-    zlz = 3340            ! Lz (Size of the box in z-direction) 
+    xlx = 2004            ! Lx (Size of the box in x-direction)
+    yly = 504             ! Ly (Size of the box in y-direction) 
+    zlz = 1336            ! Lz (Size of the box in z-direction) 
     re  = 10000           ! nu=1/re (Kinematic Viscosity)
     sc  = 1.              ! Schmidt number (if passive scalar)
-    u1  = 1.              ! u1 (max velocity) (for inflow condition)
-    u2  = 1.              ! u2 (min velocity) (for inflow condition) 
-    noise  = 0.005        ! Turbulence intensity (1=100%) !! Initial condition
+
+    ! Inflow conditions, unused IF iin=3
+    u1  = 10.              ! u1 (max velocity) (for inflow condition)
+    u2  = 10.              ! u2 (min velocity) (for inflow condition) 
+    noise  = 0.125        ! Turbulence intensity (1=100%) !! Initial condition
     noise1 = 0.0          ! Turbulence intensity (1=100%) !! Inflow condition
     
     ! Additional effects  
@@ -25,12 +27,12 @@
 ! Numerical Configuration
 &NumConfig
     ! Simulation size and parallelisation
-    nx=50                 ! X-direction nodes
+    nx=100                 ! X-direction nodes
     ny=51                 ! Y-direction nodes
-    nz=36                  ! Z-direction nodes
+    nz=72                  ! Z-direction nodes
 
     p_row=8               ! Row partition (y-axis)
-    p_col=12                ! Column partition (z-axis)
+    p_col=24                ! Column partition (z-axis)
 
     ! Boundary conditions and mesh 
     nclx = 0              ! nclx (BC)
