@@ -1,2 +1,3 @@
+from pathlib import Path
 
-from . import main
+PROJECT_ROOT=Path('/moto/home/ac4972/windopt/')
