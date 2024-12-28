@@ -7,7 +7,7 @@ name: GCH
 ###
 # A description of the contents of this input file.
 # This is not currently only for the user's reference.
-description: Three turbines using Gauss Curl Hybrid model
+description: Four turbines using Gauss Curl Hybrid model
 
 ###
 # The earliest verion of FLORIS this input file supports.
@@ -113,7 +113,7 @@ flow_field:
   ###
   # The turbulence intensities to include in the simulation, specified as a decimal.
   turbulence_intensities:
-  - 0.254
+  - 0.072
 
   ###
   # The wind directions to include in the simulation.
@@ -129,7 +129,7 @@ flow_field:
   ###
   # The wind speeds to include in the simulation.
   wind_speeds:
-  - 11.90
+  - 9.48
 
   ###
   # The wind veer as a constant value for all points in the grid.
