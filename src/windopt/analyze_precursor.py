@@ -79,6 +79,8 @@ def plot_abl_profiles(y_coords, u_mean, y_log, u_log, TI):
     # ax1.set_ylim(0, 20)
     ax1.set_xlabel('z [m]')
     ax1.set_ylabel(r'$\overline{u} [m/s]$')
+    # let's add a vertical line at hub height
+    ax1.axvline(HUB_HEIGHT, color='grey', alpha=0.5, linestyle='--', label='Hub height')
     ax1.legend()
     
     # Plot (b) - Turbulence intensity profile
@@ -87,7 +89,9 @@ def plot_abl_profiles(y_coords, u_mean, y_log, u_log, TI):
     # ax2.set_xlim(0, 15)
     ax2.set_xlabel('TI [%]')
     ax2.set_ylabel('z [m]')
-    
+    ax2.axhline(HUB_HEIGHT, color='grey', alpha=0.5, linestyle='--', label='Hub height')
+    ax2.legend()
+
     plt.tight_layout()
     return fig
 
@@ -113,7 +117,15 @@ if __name__ == "__main__":
 
     args = p.parse_args()
 
-    if args.arena == "small":
+    if args.arena == "small_10m":
+        n = (200, 51, 144)        # gridpoints
+        dims = (2004, 504, 1336)  # arena dimensions
+
+    elif args.arena == "small_20m":
+        n = (100, 51, 72)          # gridpoints
+        dims = (2004, 504, 1336)  # arena dimensions
+
+    elif args.arena == "small_40m":
         n = (50, 51, 36)          # gridpoints
         dims = (2004, 504, 1336)  # arena dimensions
 
@@ -174,15 +186,8 @@ if __name__ == "__main__":
     # plot mean velocity and turbulence intensity at each height
     y_values, expected_velocities = log_law()
 
-    np.savez(args.inflow_dir / 'y_coords.npz', data=y_coords)
-    np.savez(args.inflow_dir / 'velocity_profile.npz', data=velocity_profile)
-    np.savez(args.inflow_dir / 'y_values.npz', data=y_values)
-    np.savez(args.inflow_dir / 'expected_velocities.npz', data=expected_velocities)
-    np.savez(args.inflow_dir / 'turbulence_profile.npz', data=turbulence_profile)
-
     print(velocity_profile)
     print(turbulence_profile)
-
     fig = plot_abl_profiles(
         y_coords,
         velocity_profile,
