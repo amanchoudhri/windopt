@@ -19,6 +19,7 @@ from ax.storage.json_store.save import save_experiment
 from ax.utils.common.logger import ROOT_LOGGER
 
 from windopt.winc3d import start_les, process_results
+from windopt.winc3d.io import cleanup_viz_files
 from windopt.winc3d.slurm import LESJob
 from windopt.main import (
     turbine_parameters,
@@ -136,6 +137,9 @@ def run_experiment(experiment_name: str, debug_mode: bool = False) -> AxClient:
                         logger.error(f"Error processing results for trial {trial_index}: {e}")
                         ax_client.log_trial_failure(trial_index)
                     active_jobs.remove((job, trial_index))
+
+                    # Clean up large visualization files
+                    cleanup_viz_files(job.job_dir)
             
             # Save current state
             exp_to_df(ax_client.experiment).to_csv(
