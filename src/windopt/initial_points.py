@@ -36,10 +36,7 @@ if __name__ == "__main__":
         gch_samples = sample(arena_size, n_turbines, n_samples=100)
 
         # 12 to be evaluated using large eddy simulations
-        # Rescale ARENA_SIZE for les due to initial error in rotor diameter spec
-        OLD_ROTOR_DIAMTER = 126.4
-        RESCALE_FACTOR = OLD_ROTOR_DIAMTER / D
-        les_samples = sample(arena_size * RESCALE_FACTOR, n_turbines, n_samples=12)
+        les_samples = sample(arena_size, n_turbines, n_samples=12)
 
         # to both, add a uniformly spaced grid layout
         ticks = np.linspace(0, arena_size, int(np.sqrt(n_turbines) + 1), endpoint=False)[1:]

@@ -5,17 +5,19 @@ import numpy as np
 from windopt.winc3d.slurm import LESJob
 from windopt.winc3d.les import process_results
 
+
 JOB_IDS = [
-    19680306, 19680307, 19680308, 19680309, 19680310, 19680311, 19680312,
-    19680313, 19680314, 19680315, 19680316, 19680317, 19680318
+    19692564, 19692565, 19692566, 19692567, 19692568, 19692569, 19692570,
+    19692571, 19692572, 19692573, 19692574, 19692575, 19692576,
     ]
+
 
 simulation_dir = Path('/moto/home/ac4972/windopt/simulations')
 
 powers = np.zeros(len(JOB_IDS))
 
 for i in range(len(JOB_IDS)):
-    datetime_str = '20241212_032210'
+    datetime_str = '20241225_194026'
     job_dir = simulation_dir / f'initial_les_trial_{i}_{datetime_str}' / 'out'
 
     job = LESJob(JOB_IDS[i], job_dir)
