@@ -91,7 +91,8 @@ def make_in_file(
         
     if debug_mode:
         config["NumConfig"]["ilast"] = 1000
-        print(config)
+        config["FileParam"]["imodulo"] = 1000
+        config["StatParam"]["spinup_time"] = 0
 
     # write the config to the file
     outfile = Path(outfile)
@@ -105,3 +106,48 @@ def read_adm_file(adm_file: Path):
     return pd.read_csv(
             adm_file, sep=', ', engine='python'
             )
+
+def tail(filename, n=10):
+    with open(filename, 'rb') as f:
+        # Go to end of file
+        f.seek(0, 2)
+        # Get file size
+        size = f.tell()
+        
+        lines = []
+        position = size
+        
+        # Read backwards until we have n lines
+        while len(lines) < n and position > 0:
+            # Move back one byte
+            position -= 1
+            f.seek(position)
+            
+            # Read one byte
+            char = f.read(1)
+            
+            # If we hit a newline, store the line
+            if char == b'\n':
+                line = f.readline()
+                lines.append(line.decode())
+                
+        # Reverse the lines since we read backwards
+        return lines[::-1]
+
+def is_job_completed_successfully(log_file: Path) -> bool:
+    """
+    Get the status of the job from the log file.
+    """
+    # let's only read the last 10 lines of the file
+    tail_lines = tail(log_file, 10)
+
+    # on successful completion, the winc3d routine outputs the string "time per
+    # time_step:" we can check for this pattern to determine if the job is
+    # complete
+    success_pattern = "time per time_step:"
+
+    # TODO: this is a hack, but it works for now
+    if success_pattern in ''.join(tail_lines):
+        return True
+    else:
+        return False

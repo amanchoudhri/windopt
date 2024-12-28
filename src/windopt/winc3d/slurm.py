@@ -9,18 +9,18 @@ from typing import Optional, Union
 
 import pandas as pd
 
-from windopt.winc3d.io import read_adm_file
+from windopt.winc3d.io import is_job_completed_successfully, read_adm_file
 
 class LESJob:
     def __init__(self, slurm_job_id: int, job_dir: Path):
         self.slurm_job_id = slurm_job_id
-        self.job_dir = job_dir
+        self.job_dir = Path(job_dir)
 
     def _job_info(self) -> tuple:
         # Get information about the job using the `sacct` command.
         # Example: sacct -j 19680110 -o JobID,State,ExitCode -n -P
         result = subprocess.run(
-            ["sacct", "-j", self.slurm_job_id, "-o", "Elapsed,State,ExitCode", "-n", "-P"],
+            ["sacct", "-j", str(self.slurm_job_id), "-o", "Elapsed,State,ExitCode", "-n", "-P"],
             capture_output=True,
             text=True,
             check=True
@@ -29,13 +29,53 @@ class LESJob:
         main_info = result.stdout.split("\n")[0].split("|")
         return main_info
 
+    def is_running_squeue(self) -> bool:
+        """
+        Check if the job is currently running using `squeue`.
+
+        Needed in case `sacct` is not working.
+        """
+        result = subprocess.run(
+            ["squeue", "-j", str(self.slurm_job_id), "--noheader", "-O", "jobid,state"],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        # check if the job has an squeue entry
+        if result.stdout.strip() == "":
+            return False
+        # check if the job is in the running state
+        state = result.stdout.split("\n")[0].split("|")[1].strip()
+        is_running_state = state == "R"
+        is_pending_state = state == "PD"
+        return is_running_state or is_pending_state
+
     def is_complete(self) -> bool:
+        """
+        Check if the job is complete.
+
+        First try to use `sacct` to check the job status. If that fails, fall
+        back to checking the log file to determine whether it was a success or
+        failure.
+        """
         info = self._job_info()
-        return info[1] == "COMPLETED"
+
+        # if for some reason sacct isn't working, check the log file
+        if len(info) < 2:
+            # first check squeue to see if the job is active
+            if self.is_running_squeue():
+                return False
+            # if it's not active, check the log file to determine
+            # whether it was a success or failure
+            log_file = list(self.job_dir.glob("winc3d_*.log"))[0]
+            return is_job_completed_successfully(log_file)
+        else:
+            return info[1] == "COMPLETED"
 
     def status(self) -> str:
-        info = self._job_info()
-        return info[1]
+        raise NotImplementedError("Currently not working, due to SLURM bug!")
+        # info = self._job_info()
+        # return info[1]
 
     def turbine_results(self) -> Union[pd.DataFrame, None]:
         """
@@ -43,12 +83,12 @@ class LESJob:
         """
         if not self.is_complete():
             return None
-        # read *.adm files from the job out subdirectory
-        n_files = len(list(self.job_dir.glob("discs_time[0-9]*.adm")))
+        # read *.adm files from the job_dir/out subdirectory
+        n_files = len(list(self.job_dir.glob("out/discs_time[0-9]*.adm")))
         # parse each file and stack the results
         data = []
         for i in range(1, n_files + 1):
-            adm_file = self.job_dir / f'discs_time{i}.adm'
+            adm_file = self.job_dir / f'out/discs_time{i}.adm'
             adm_info = read_adm_file(adm_file)
             adm_info['filenumber'] = i
             data.append(adm_info)
@@ -60,10 +100,10 @@ class SlurmConfig:
     account: str = "edu"
     partition: str = "short"
     job_name: str = "winc3d"
-    nodes: int = 4
+    nodes: int = 8
     ntasks_per_node: int = 24
     mem_gb: int = 128
-    time_limit: str = "12:00:00"
+    time_limit: str = "10:00:00"
     
     @property
     def total_tasks(self) -> int:

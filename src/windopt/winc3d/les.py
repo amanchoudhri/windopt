@@ -85,7 +85,7 @@ def start_les(
 
     return job
 
-def process_results(job: LESJob) -> float:
+def process_results(job: LESJob, debug_mode: bool = False) -> float:
     """
     Process the results of a LES job.
     """
@@ -96,9 +96,9 @@ def process_results(job: LESJob) -> float:
 
     # HARDCODED VALUES
     # TODO: make this dynamic
-    N_TIMESTEPS = 45000
-    SPINUP_TIMESTEPS = 9000
-    N_OUT_FILES = 5
+    N_TIMESTEPS = 45000 if not debug_mode else 1000
+    SPINUP_TIMESTEPS = 9000 if not debug_mode else 0
+    N_OUT_FILES = 5 if not debug_mode else 1
 
     # get the average farm power output after the spinup period, in watts
     average_farm_power = power_data.loc[
