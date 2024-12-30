@@ -72,10 +72,13 @@ class LESJob:
         else:
             return info[1] == "COMPLETED"
 
+    def is_failed(self) -> bool:
+        info = self._job_info()
+        return info[1] == "FAILED"
+
     def status(self) -> str:
-        raise NotImplementedError("Currently not working, due to SLURM bug!")
-        # info = self._job_info()
-        # return info[1]
+        info = self._job_info()
+        return info[1]
 
     def turbine_results(self) -> Union[pd.DataFrame, None]:
         """
