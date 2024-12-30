@@ -10,6 +10,8 @@ import f90nml
 import numpy as np
 import pandas as pd
 
+from windopt.constants import DT
+
 def make_ad_file(
     locations: np.ndarray,
     diameter: float,
@@ -47,7 +49,8 @@ def make_in_file(
     n_turbines: Optional[int] = None,
     inflow_directory: Optional[Path] = None,
     inflow_n_timesteps: Optional[int] = None,
-    debug_mode: bool = False
+    debug_mode: bool = False,
+    frequent_viz: bool = False
     ):
     """
     Create the .in configuration file for a large-eddy simulation run.
@@ -89,6 +92,12 @@ def make_in_file(
         n_files = len(list(Path(inflow_directory).glob("inflow[1-9]*")))
         config["FileParam"]["NInflows"] = n_files
         
+    if frequent_viz:
+        # write to the log file every generated minute
+        config["FileParam"]["imodulo"] = int(60 / DT)
+        # additionally, save the flow field every generated minute
+        config["FileParam"]["isave"] = int(60 / DT)
+
     if debug_mode:
         config["NumConfig"]["ilast"] = 1000
         config["FileParam"]["imodulo"] = 1000

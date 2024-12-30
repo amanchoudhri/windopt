@@ -25,6 +25,7 @@ def start_les(
     box_size: tuple[float, float, float] = SMALL_BOX_DIMS,
     slurm_config: Optional[SlurmConfig] = None,
     debug_mode: bool = False,
+    frequent_viz: bool = False,
     ) -> LESJob:
     """
     Start a large-eddy simulation run.
@@ -45,7 +46,8 @@ def start_les(
         The SLURM configuration parameters.
     debug_mode: bool
         Whether to run in debug mode.
-    
+    frequent_viz: bool
+        Whether to run WInc3D with frequent visualization output.
     Returns
     -------
     LESJob
@@ -70,6 +72,7 @@ def start_les(
         inflow_directory=inflow_directory,
         inflow_n_timesteps=inflow_n_timesteps,
         debug_mode=debug_mode,
+        frequent_viz=frequent_viz,
         )
 
     # submit the job
