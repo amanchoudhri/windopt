@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from windopt import PROJECT_ROOT
+from windopt.constants import PROJECT_ROOT
 from windopt.gch import gch
 from windopt.winc3d.les import start_les
 

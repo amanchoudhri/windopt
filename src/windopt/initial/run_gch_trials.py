@@ -2,7 +2,7 @@ from pathlib import Path
 
 import numpy as np
 
-from windopt import PROJECT_ROOT
+from windopt.constants import PROJECT_ROOT
 from windopt.gch import gch
 
 if __name__ == "__main__":

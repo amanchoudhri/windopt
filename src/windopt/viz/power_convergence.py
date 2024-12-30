@@ -7,7 +7,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from windopt import PROJECT_ROOT
+from windopt.constants import PROJECT_ROOT
 from windopt.winc3d.io import turbine_results
 
 DEFAULT_N_TIMESTEPS_PER_FILE = 9000

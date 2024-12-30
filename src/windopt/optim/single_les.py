@@ -25,8 +25,7 @@ from windopt.main import (
     turbine_parameters,
     load_initial_data
 )
-from windopt.constants import SMALL_BOX_DIMS
-from windopt import PROJECT_ROOT
+from windopt.constants import SMALL_BOX_DIMS, PROJECT_ROOT
 
 BATCH_SIZE = 4
 # each LES run takes 40 minutes, and I want a max duration of 12 hours

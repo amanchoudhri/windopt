@@ -11,7 +11,7 @@ from matplotlib import pyplot as plt
 
 import seaborn as sns
 
-from windopt import PROJECT_ROOT
+from windopt.constants import PROJECT_ROOT
 
 sns.set_theme(style="whitegrid")
 sns.set_context("talk")

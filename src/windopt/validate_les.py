@@ -8,8 +8,7 @@ from pathlib import Path
 
 import numpy as np
 
-from windopt import PROJECT_ROOT
-from windopt.constants import D, HUB_HEIGHT, SMALL_BOX_DIMS
+from windopt.constants import PROJECT_ROOT, D, HUB_HEIGHT, SMALL_BOX_DIMS
 from windopt.winc3d.slurm import LESJob, submit_job, SlurmConfig
 from windopt.winc3d.les import start_les
 

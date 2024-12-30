@@ -2,34 +2,6 @@
 Multi-fidelity BO using LES and GCH, using the Ax MultiTypeExperiment class.
 """
 
-# from ax.core.multi_type_experiment import MultiTypeExperiment
-# from ax.modelbridge.registry import Models, MT_MTGP_trans, ST_MTGP_trans
-
-# from windopt.main import (
-#     turbine_parameters,
-#     LESRunner,
-#     LESMetric,
-#     GCHRunner,
-#     GCHMetric,
-# )
-
-
-import numpy as np
-
-from ax.core.observation import ObservationFeatures
-from ax.models.torch.botorch_modular.surrogate import Surrogate
-
-from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
-from ax.modelbridge.registry import Models
-from ax.modelbridge.transforms.task_encode import TaskChoiceToIntTaskChoice
-from ax.modelbridge.transforms.unit_x import UnitX
-from ax.modelbridge.transforms.standardize_y import StandardizeY
-
-from ax.service.ax_client import AxClient, ObjectiveProperties
-
-from windopt.gch import gch
-
-
 from datetime import datetime
 import logging
 import time 
@@ -39,22 +11,27 @@ from argparse import ArgumentParser
 
 import numpy as np
 
-from ax.modelbridge.generation_strategy import GenerationStrategy, GenerationStep
+from ax.core.observation import ObservationFeatures
+from ax.models.torch.botorch_modular.surrogate import Surrogate
+from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import Models
+from ax.modelbridge.transforms.task_encode import TaskChoiceToIntTaskChoice
+from ax.modelbridge.transforms.unit_x import UnitX
+from ax.modelbridge.transforms.standardize_y import StandardizeY
 from ax.service.ax_client import AxClient, ObjectiveProperties
 from ax.service.utils.report_utils import exp_to_df
 from ax.storage.json_store.save import save_experiment
 from ax.utils.common.logger import ROOT_LOGGER
 
-from windopt.winc3d import start_les, process_results
-from windopt.winc3d.io import cleanup_viz_files
-from windopt.winc3d.slurm import LESJob
+from windopt.constants import SMALL_BOX_DIMS, PROJECT_ROOT
+from windopt.gch import gch
 from windopt.main import (
     turbine_parameters,
     load_initial_data
 )
-from windopt.constants import SMALL_BOX_DIMS
-from windopt import PROJECT_ROOT
+from windopt.winc3d import start_les, process_results
+from windopt.winc3d.io import cleanup_viz_files
+from windopt.winc3d.slurm import LESJob
 
 DEFAULT_GCH_BATCH_SIZE = 50
 LES_BATCH_SIZE = 4

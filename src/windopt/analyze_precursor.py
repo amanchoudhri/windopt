@@ -12,9 +12,11 @@ from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 
-from windopt.constants import HUB_HEIGHT
+from windopt.constants import (
+    PROJECT_ROOT, HUB_HEIGHT, DT,
+    SMALL_BOX_DIMS, LARGE_BOX_DIMS
+)
 
-DEFAULT_DT = 0.2         # seconds
 ABL_HEIGHT = 504.        # m
 U_STAR = 0.442           # m/s
 VON_KARMAN = 0.4         # dimensionless
@@ -113,29 +115,29 @@ if __name__ == "__main__":
     p.add_argument("inflow_dir", type=Path)
     p.add_argument("--arena", type=str, required=True)
     p.add_argument("--nt", type=int, required=True)
-    p.add_argument("--dt", type=float, required=False, default=DEFAULT_DT)
+    p.add_argument("--dt", type=float, required=False, default=DT)
 
     args = p.parse_args()
 
     if args.arena == "small_10m":
         n = (200, 51, 144)        # gridpoints
-        dims = (2004, 504, 1336)  # arena dimensions
+        dims = SMALL_BOX_DIMS
 
     elif args.arena == "small_20m":
         n = (100, 51, 72)          # gridpoints
-        dims = (2004, 504, 1336)  # arena dimensions
+        dims = SMALL_BOX_DIMS
 
     elif args.arena == "small_40m":
         n = (50, 51, 36)          # gridpoints
-        dims = (2004, 504, 1336)  # arena dimensions
+        dims = SMALL_BOX_DIMS  # arena dimensions
 
     elif args.arena == "large":
         n = (100, 51, 84)
-        dims = (4008, 504, 3340)
+        dims = LARGE_BOX_DIMS
 
     elif args.arena == "large_tall":
         n = (100, 75, 84)
-        dims = (4008, 750, 3340)
+        dims = LARGE_BOX_DIMS
 
     _, yly, _ = dims
     _, ny, nz = n
@@ -178,10 +180,6 @@ if __name__ == "__main__":
 
     print(f"Mean streamwise velocity at hub height: {hub_velocity:.2f} m/s")
     print(f"Turbulence intensity at hub height: {hub_turbulence:.1f}%")
-
-    # make a new directory under img
-    project_root = Path(__file__).parent.parent.parent
-    outdir = project_root / 'img' / f'precursor_{args.arena}'
 
     # plot mean velocity and turbulence intensity at each height
     y_values, expected_velocities = log_law()
