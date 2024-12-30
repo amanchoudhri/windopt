@@ -77,7 +77,7 @@ def plot_abl_profiles(y_coords, u_mean, y_log, u_log, TI):
     
     ax1.set_xlim(10, ABL_HEIGHT)
     # ax1.set_ylim(0, 20)
-    ax1.set_xlabel('z [m]')
+    ax1.set_xlabel('y [m]')
     ax1.set_ylabel(r'$\overline{u} [m/s]$')
     # let's add a vertical line at hub height
     ax1.axvline(HUB_HEIGHT, color='grey', alpha=0.5, linestyle='--', label='Hub height')
@@ -88,7 +88,7 @@ def plot_abl_profiles(y_coords, u_mean, y_log, u_log, TI):
     ax2.set_ylim(0, ABL_HEIGHT)
     # ax2.set_xlim(0, 15)
     ax2.set_xlabel('TI [%]')
-    ax2.set_ylabel('z [m]')
+    ax2.set_ylabel('y [m]')
     ax2.axhline(HUB_HEIGHT, color='grey', alpha=0.5, linestyle='--', label='Hub height')
     ax2.legend()
 
@@ -196,4 +196,4 @@ if __name__ == "__main__":
         turbulence_profile
     )
 
-    fig.savefig(args.inflow_dir / 'inflow_stats.png')
+    fig.savefig(args.inflow_dir / 'inflow_stats.png', dpi=300)
