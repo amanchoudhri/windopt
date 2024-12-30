@@ -163,3 +163,18 @@ def cleanup_viz_files(job_dir: Path):
     for pattern in patterns:
         for f in subdir.glob(pattern):
             f.unlink()
+
+def turbine_results(job_dir: Path) -> pd.DataFrame:
+    """
+    Get the power history of each turbine from the job output.
+    """
+    # read *.adm files from the job_dir/out subdirectory
+    n_files = len(list(job_dir.glob("out/discs_time[0-9]*.adm")))
+    # parse each file and stack the results
+    data = []
+    for i in range(1, n_files + 1):
+        adm_file = job_dir / f'out/discs_time{i}.adm'
+        adm_info = read_adm_file(adm_file)
+        adm_info['filenumber'] = i
+        data.append(adm_info)
+    return pd.concat(data).reset_index(names='turbine')

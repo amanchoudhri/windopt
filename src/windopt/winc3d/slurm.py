@@ -9,7 +9,7 @@ from typing import Optional, Union
 
 import pandas as pd
 
-from windopt.winc3d.io import is_job_completed_successfully, read_adm_file
+from windopt.winc3d.io import is_job_completed_successfully, turbine_results
 
 class LESJob:
     def __init__(self, slurm_job_id: int, job_dir: Path):
@@ -83,16 +83,7 @@ class LESJob:
         """
         if not self.is_complete():
             return None
-        # read *.adm files from the job_dir/out subdirectory
-        n_files = len(list(self.job_dir.glob("out/discs_time[0-9]*.adm")))
-        # parse each file and stack the results
-        data = []
-        for i in range(1, n_files + 1):
-            adm_file = self.job_dir / f'out/discs_time{i}.adm'
-            adm_info = read_adm_file(adm_file)
-            adm_info['filenumber'] = i
-            data.append(adm_info)
-        return pd.concat(data).reset_index(names='turbine')
+        return turbine_results(self.job_dir)
 
 
 @dataclass
