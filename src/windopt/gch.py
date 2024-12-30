@@ -3,14 +3,12 @@ Run a Gauss-Curl Hybrid wake model with FLORIS.
 """
 
 from importlib import resources
-
+from typing import Optional
 import numpy as np
 
 from floris import FlorisModel
 
-import windopt
-
-def gch(locations: np.ndarray, yaws: np.ndarray):
+def gch(locations: np.ndarray, yaws: Optional[np.ndarray] = None):
     """
     Run the Gauss-Curl Hybrid wake model with FLORIS.
 
@@ -28,9 +26,10 @@ def gch(locations: np.ndarray, yaws: np.ndarray):
 
     model.set(
         layout_x=locations[:, 0],
-        layout_y=locations[:, 1],
-        yaw_angles=yaws,
+        layout_y=locations[:, 1]
     )
+    if yaws is not None:
+        model.set(yaw_angles=yaws)
 
     model.run()
 

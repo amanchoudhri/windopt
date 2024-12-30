@@ -1,14 +1,13 @@
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
-from windopt.winc3d.les import start_les
+
+from windopt import PROJECT_ROOT
 from windopt.gch import gch
 
 if __name__ == "__main__":
     # read in the initial layouts
-    project_root = Path(__file__).parent.parent.parent.parent
-    initial_points_dir = project_root / "data" / "initial_points"
+    initial_points_dir = PROJECT_ROOT / "data" / "initial_points"
 
     # read in the initial layouts
     gch_small: np.ndarray = np.load(initial_points_dir / "small_arena_gch_samples.npy")
@@ -19,8 +18,7 @@ if __name__ == "__main__":
 
     for i, layout in enumerate(gch_small):
         # run 100 GCH trials
-        yaws = np.zeros((1,layout.shape[0]))
-        power = gch(locations=layout, yaws=yaws).sum()
+        power = gch(locations=layout).sum()
         powers[i] = power
         print(f'{i}: {(power / 1e6):0.5f} mW')
 
