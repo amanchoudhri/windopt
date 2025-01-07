@@ -25,11 +25,11 @@ from windopt.main import (
     turbine_parameters,
     load_initial_data
 )
-from windopt.constants import SMALL_BOX_DIMS, PROJECT_ROOT
+from windopt.constants import SMALL_BOX_DIMS, PROJECT_ROOT, INFLOW_20M, INFLOW_20M_N_TIMESTEPS
 
-BATCH_SIZE = 4
-# each LES run takes 40 minutes, and I want a max duration of 12 hours
-MAX_BATCHES = 18
+BATCH_SIZE = 5
+# each LES run takes 40 minutes, and I want a max duration of 36 hours
+MAX_BATCHES = 54
 
 # how often to check if a LES has finished (in seconds)
 POLLING_INTERVAL = 30
@@ -75,7 +75,7 @@ def run_experiment(experiment_name: str, debug_mode: bool = False) -> AxClient:
     # we have preloaded initial trial data.
     gs = GenerationStrategy(
         steps=[
-            GenerationStep(model=Models.BOTORCH_MODULAR, num_trials=-1, max_parallelism=4)
+            GenerationStep(model=Models.BOTORCH_MODULAR, num_trials=-1, max_parallelism=BATCH_SIZE)
         ]
     )
 
@@ -115,7 +115,9 @@ def run_experiment(experiment_name: str, debug_mode: bool = False) -> AxClient:
                 run_name=f"{experiment_name}_trial_{trial_index}",
                 locations=locations,
                 box_size=SMALL_BOX_DIMS,
-                debug_mode=debug_mode,
+                inflow_directory=INFLOW_20M,
+                inflow_n_timesteps=INFLOW_20M_N_TIMESTEPS,
+                debug_mode=debug_mode
             )
             active_jobs.append((job, trial_index))
 

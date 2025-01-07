@@ -23,7 +23,7 @@ from ax.service.utils.report_utils import exp_to_df
 from ax.storage.json_store.save import save_experiment
 from ax.utils.common.logger import ROOT_LOGGER
 
-from windopt.constants import SMALL_BOX_DIMS, PROJECT_ROOT
+from windopt.constants import SMALL_BOX_DIMS, PROJECT_ROOT, INFLOW_20M, INFLOW_20M_N_TIMESTEPS
 from windopt.gch import gch
 from windopt.main import (
     turbine_parameters,
@@ -33,11 +33,11 @@ from windopt.winc3d import start_les, process_results
 from windopt.winc3d.io import cleanup_viz_files
 from windopt.winc3d.slurm import LESJob
 
-DEFAULT_GCH_BATCH_SIZE = 50
-LES_BATCH_SIZE = 4
+DEFAULT_GCH_BATCH_SIZE = 25
+LES_BATCH_SIZE = 5
 
 # each LES run takes 40 minutes, and I want a max duration of 12 hours
-MAX_LES_BATCHES = 18
+MAX_LES_BATCHES = 54
 
 # how often to check if a LES has finished (in seconds)
 POLLING_INTERVAL = 30
@@ -173,6 +173,8 @@ def run_multi_fidelity_experiment(
                 run_name=f"{experiment_name}_trial_{trial_index}",
                 locations=locations,
                 box_size=SMALL_BOX_DIMS,
+                inflow_directory=INFLOW_20M,
+                inflow_n_timesteps=INFLOW_20M_N_TIMESTEPS
                 debug_mode=debug_mode,
             )
             logger.info(f"Job submitted with ID: {job.slurm_job_id}")
