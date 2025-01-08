@@ -1,3 +1,4 @@
+from argparse import ArgumentParser
 from pathlib import Path
 
 import numpy as np
@@ -12,14 +13,15 @@ from windopt.constants import HUB_HEIGHT, SMALL_BOX_DIMS, MESH_SHAPE_20M
 from windopt.winc3d.io import read_turbine_locations
 
 
+VECTOR_FIELDS = ('ux', 'uy', 'uz', 'gammadisc', 'pp', 'vort')
+
 def vector_field_file(
         outdir: Path,
         filenumber: int,
         fileprefix: str
         ):
-    allowable = ('ux', 'uy', 'uz', 'gammadisc', 'pp', 'vort')
-    if fileprefix not in allowable:
-        raise ValueError(f"Invalid file prefix: {fileprefix}. Must be one of {allowable}.")
+    if fileprefix not in VECTOR_FIELDS:
+        raise ValueError(f"Invalid file prefix: {fileprefix}. Must be one of {VECTOR_FIELDS}.")
     return outdir / f"{fileprefix}{filenumber:04d}"
 
 def load_vector_field(
@@ -76,10 +78,7 @@ def plot_hub_height_vector_field(
     nx, ny, nz = mesh_shape
     dy = yly / ny
 
-    # hub_height_idx = int(hub_height / dy)
-    hub_height_idx = 10
-    # print(hub_height_idx)
-
+    hub_height_idx = int(hub_height / dy)
 
     def _hub_height_vector_field(file_number: int):
         # transpose the velocity field to match the plotly heatmap
@@ -98,7 +97,11 @@ def plot_hub_height_vector_field(
         width=fig_width,  # Width of each subplot
         height=fig_width * aspect_ratio,  # Total height for all three subplots
         margin=dict(t=50, b=50, l=50, r=50),  # Add margins to prevent cutoff
+        title=f'{fileprefix} vector field (steps {file_numbers[0]}-{file_numbers[-1]})',
+        title_x=0.5,
+        title_y=0.98
     )
+
     velocity_0 = _hub_height_vector_field(file_numbers[0])
 
     # get min and max values from the data
@@ -250,10 +253,13 @@ def inst_and_mean_velocity_field(jobdir: Path, file_number: int):
         horizontal_spacing=0.07
         )
 
+    fig.update_annotations(font_size=24)
+
     fig.update_layout(
         width=2.1 * figwidth,
         height=figheight,
-        margin=dict(t=50, b=50, l=50, r=50)
+        margin=dict(t=50, b=50, l=50, r=50),
+        font=dict(size=20)
     )
 
     fig.add_trace(go.Heatmap(
@@ -298,40 +304,98 @@ def inst_and_mean_velocity_field(jobdir: Path, file_number: int):
 
     fig.show()
 
-    # fig.write_html(PROJECT_ROOT / 'img' / 'ux_and_umean.html')
     fig.write_image(PROJECT_ROOT / 'img' / 'ux_and_umean.png')
 
     return fig
 
 
+def get_args():
+    p = ArgumentParser(description="Visualize wind farm vector field data")
+    
+    # Required arguments
+    p.add_argument(
+        "run_dir",
+        type=Path,
+        help="Path to the simulation run directory"
+    )
+    p.add_argument(
+        "--field",
+        type=str,
+        choices=VECTOR_FIELDS,
+        default='ux',
+        help="Vector field type to visualize"
+    )
+    p.add_argument(
+        "--start",
+        type=int,
+        default=0,
+        help="Starting timestep number"
+    )
+    p.add_argument(
+        "--n_steps",
+        type=int,
+        default=None,
+        help="Number of timesteps to plot (default: all available steps)"
+    )
+    
+    # Optional arguments
+    p.add_argument(
+        "--mesh-shape",
+        type=int,
+        nargs=3,
+        default=MESH_SHAPE_20M,
+        help="Mesh shape as nx ny nz (default: %(default)s)"
+    )
+    p.add_argument(
+        "--width",
+        type=int,
+        default=1000,
+        help="Figure width in pixels (default: %(default)s)"
+    )
+    p.add_argument(
+        "--save",
+        type=Path,
+        help="Save the plot to this file path (supports .html or .png)"
+    )
+
+    return p.parse_args()
+
+def visualize_vector_field_cli():
+    args = get_args()
+
+    if not args.run_dir.exists():
+        raise ValueError(f"Run directory does not exist: {args.run_dir}")
+
+    available_steps = len(list((args.run_dir / 'out').glob(f'{args.field}*')))
+
+    if available_steps == 0:
+        raise ValueError(f"No {args.field} files found in {args.run_dir}/out/")
+
+    if not args.n_steps:
+        end_step = available_steps
+    else:
+        end_step = min(args.start + args.n_steps, available_steps)
+
+    file_numbers = list(range(args.start, end_step))
+
+    fig = plot_hub_height_vector_field(
+        args.run_dir,
+        file_numbers,
+        args.field,
+        mesh_shape=tuple(args.mesh_shape),
+        fig_width=args.width
+    )
+    
+    # Save if requested
+    if args.save:
+        if args.save.suffix == '.html':
+            fig.write_html(args.save)
+        elif args.save.suffix == '.png':
+            fig.write_image(args.save)
+        else:
+            print(f"Warning: Unrecognized file extension {args.save.suffix}, skipping save")
+
+    fig.show()
+
 if __name__ == "__main__":
-    GRID = 'grid'
-    RANDOM = 'random'
-
-    use_precursor = False
-    layout = RANDOM
-
-    dirname = f'validate_les_{layout}'
-    if not use_precursor:
-        dirname += '_no_precursor'
-
-    jobdir = Path(f'/moto/edu/users/ac4972/validate_les/{dirname}/')
-
-    # jobdir = Path('/moto/home/ac4972/windopt/simulations/validate_les_grid_20241230_194106')
-
-    # # plot a 30 minute evolution of the streamwise velocity field
-    # file_numbers = list(range(0, 12))
-    # fig = plot_hub_height_vector_field(jobdir, file_numbers, 'ux')
-    # # title the figure, but add a good amount of space below the title since we have the slider
-    # fig.update_layout(title='Streamwise velocity field', title_x=0.5, title_y=0.98)
-    # fig.show()
-
-    # # save the figure
-    # fig.write_html(PROJECT_ROOT / 'img' / 'velocity_field.html')
-
-    # fig = go.Figure()
-    # fig.add_trace(plot_umean(jobdir))
-    # fig.show()
-
-    file_number = 30
-    inst_and_mean_velocity_field(jobdir, file_number)
+    visualize_vector_field_cli()
