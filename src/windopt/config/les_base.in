@@ -27,7 +27,7 @@
 ! Numerical Configuration
 &NumConfig
     ! Simulation size and parallelisation
-    nx=100                 ! X-direction nodes
+    nx=101                 ! X-direction nodes
     ny=51                 ! Y-direction nodes
     nz=72                  ! Z-direction nodes
 
@@ -35,7 +35,7 @@
     p_col=24                ! Column partition (z-axis)
 
     ! Boundary conditions and mesh 
-    nclx = 0              ! nclx (BC)
+    nclx = 2              ! nclx (BC)
     ncly = 1              ! ncly (BC) 
     nclz = 0              ! nclz (BC)
     istret = 0            ! y mesh refinement (0:no, 1:center, 2:both sides, 3:bottom)

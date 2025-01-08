@@ -21,7 +21,7 @@ LARGE_BOX_DIMS = (4008, 504, 3340)
 DT = 0.2
 
 # mesh shape for large eddy simulations
-MESH_SHAPE_20M = (100, 51, 72) # 20m horizontal resolution and small arena dims
+MESH_SHAPE_20M = (101, 51, 72) # 20m horizontal resolution and small arena dims
 
 INFLOW_20M = PROJECT_ROOT / 'simulations/small_arena_20m/planes'
 INFLOW_20M_N_TIMESTEPS = 6000
