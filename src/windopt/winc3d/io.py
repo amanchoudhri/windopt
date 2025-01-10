@@ -100,8 +100,9 @@ def make_in_file(
         config["FileParam"]["isave"] = int(60 / DT)
 
     if debug_mode:
-        config["NumConfig"]["ilast"] = 1000
-        config["FileParam"]["imodulo"] = 1000
+        config["NumConfig"]["ilast"] = 2000
+        write_interval = 20 if frequent_viz else 1000
+        config["FileParam"]["imodulo"] = write_interval
         config["StatParam"]["spinup_time"] = 0
 
     # write the config to the file

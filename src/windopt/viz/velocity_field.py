@@ -34,7 +34,6 @@ def load_vector_field(
     return uvec.reshape(mesh_shape, order='F')
 
 
-# also plot using plotly
 def make_velocity_field_heatmap(
         hub_height_velocity_field: np.ndarray,
         min_speed: float,
