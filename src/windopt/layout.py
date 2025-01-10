@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Literal
 
@@ -78,39 +78,35 @@ class Layout:
         
         return self.coords + self._offsets
 
-    @classmethod
-    def load(cls, path: Path) -> "Layout":
-        """Load a layout from a numpy compressed archive.
-            
-        Raises:
-            ValueError: If the file format is invalid
-        """
-        try:
-            data = np.load(path)
-            return cls(
-                coords=data['coords'],
-                system=str(data['system']),
-                arena_dims=tuple(data['arena_dims']),
-                box_dims=tuple(data['box_dims'])
-            )
-        except KeyError as e:
-            raise ValueError(f"Invalid layout file format: missing {e}")
-        except Exception as e:
-            raise ValueError(f"Failed to load layout: {e}")
 
-    def save(self, path: Path) -> None:
-        """Save layout to a numpy compressed archive.
-        
-        Args:
-            path: Path where the .npz file should be saved
-        """
-        # Ensure directory exists
-        path.parent.mkdir(parents=True, exist_ok=True)
-        
-        np.savez(
-            path,
-            coords=self.coords,
-            system=self.system,
-            arena_dims=self.arena_dims,
-            box_dims=self.box_dims
+def save_layout_batch(layouts: list[Layout], outpath: Path) -> None:
+    """Save a batch of layouts to a numpy compressed archive."""
+    # Convert all fields into single arrays
+    coords = np.stack([layout.coords for layout in layouts])
+    systems = np.array([layout.system for layout in layouts])
+    arena_dims = np.array([layout.arena_dims for layout in layouts])
+    box_dims = np.array([layout.box_dims for layout in layouts])
+    
+    np.savez(
+        outpath,
+        n_layouts=len(layouts),
+        coords=coords,
+        systems=systems,
+        arena_dims=arena_dims,
+        box_dims=box_dims
+    )
+
+def load_layout_batch(path: Path) -> list[Layout]:
+    """Load a batch of layouts from a numpy compressed archive."""
+    data = np.load(path)
+    n_layouts = int(data['n_layouts'])
+    
+    return [
+        Layout(
+            coords=data['coords'][i],
+            system=str(data['systems'][i]),
+            arena_dims=tuple(data['arena_dims'][i]),
+            box_dims=tuple(data['box_dims'][i])
         )
+        for i in range(n_layouts)
+    ]

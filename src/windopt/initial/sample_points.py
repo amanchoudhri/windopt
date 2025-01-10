@@ -8,7 +8,10 @@ import numpy as np
 
 from scipy.stats.qmc import LatinHypercube
 
-from windopt.constants import D, SMALL_ARENA_DIMS, LARGE_ARENA_DIMS
+from windopt.constants import (
+    SMALL_ARENA_DIMS, LARGE_ARENA_DIMS, SMALL_BOX_DIMS, LARGE_BOX_DIMS, PROJECT_ROOT
+    )
+from windopt.layout import Layout, save_layout_batch
 
 SEED = 2024
 
@@ -24,42 +27,41 @@ def sample(arena_size: int, n_turbines: int, n_samples: int) -> np.ndarray:
     unscaled_samples = unscaled_samples.reshape(n_samples, n_turbines, 2)
     return unscaled_samples * arena_size
 
-
-if __name__ == "__main__":
-    # small arena: 6D by 6D arena, 4 turbines.
-    # large arena: 18D by 18D arena, 16 turbines.
-    ARENA_NAMES = ["small", "large"]
-    ARENA_SIZES = [SMALL_ARENA_DIMS[0], LARGE_ARENA_DIMS[0]]
-    N_TURBINES = [4, 16]
-    for arena_name, arena_size, n_turbines in zip(ARENA_NAMES, ARENA_SIZES, N_TURBINES):
+def main(arena_setups):
+    for config_name, arena_size, box_size, n_turbines in arena_setups:
+        arena_xdim, _ = arena_size
         # sample 100 layouts to be evaluated using GCH
-        gch_samples = sample(arena_size, n_turbines, n_samples=100)
-
+        gch_samples = sample(arena_xdim, n_turbines, n_samples=100)
         # 12 to be evaluated using large eddy simulations
-        les_samples = sample(arena_size, n_turbines, n_samples=12)
+        les_samples = sample(arena_xdim, n_turbines, n_samples=12)
 
-        # to both, add a uniformly spaced grid layout
-        ticks = np.linspace(0, arena_size, int(np.sqrt(n_turbines) + 1), endpoint=False)[1:]
-        # Create a meshgrid of x,z coordinates
+        # create and add a uniform grid layout for baseline comparison
+        ticks = np.linspace(0, arena_xdim, int(np.sqrt(n_turbines) + 1), endpoint=False)[1:]
         x_coords, z_coords = np.meshgrid(ticks, ticks)
-        # Stack and reshape into (1, n_turbines, 2) array
         grid_layout = np.column_stack((x_coords.flatten(), z_coords.flatten()))
         grid_layout = grid_layout.reshape(1, n_turbines, 2)
-        # concatenate to the end of gch and les samples
+
         gch_samples = np.concatenate([gch_samples, grid_layout], axis=0)
         les_samples = np.concatenate([les_samples, grid_layout], axis=0)
 
+        # package into Layout objects
+        def make_layout(coords: np.ndarray) -> Layout:
+            return Layout(coords=coords, system="arena", arena_dims=arena_size, box_dims=box_size)
+
+        gch_layouts = [make_layout(layout) for layout in gch_samples]
+        les_layouts = [make_layout(layout) for layout in les_samples]
+
         # save to file
-        project_dir = Path(__file__).parent.parent.parent
-        outdir = project_dir / "data" / "initial_points"
+        outdir = PROJECT_ROOT / "data" / "initial_points"
         outdir.mkdir(parents=True, exist_ok=True)
-        
-        # Save sample points
-        np.save(
-            outdir / f"{arena_name}_arena_gch_samples.npy",
-            gch_samples
-        )
-        np.save(
-            outdir / f"{arena_name}_arena_les_samples.npy",
-            les_samples
-        )
+
+        save_layout_batch(gch_layouts, outdir / f"{config_name}_arena_gch_samples.npz")
+        save_layout_batch(les_layouts, outdir / f"{config_name}_arena_les_samples.npz")
+
+if __name__ == "__main__":
+    ARENA_SETUPS = [
+        # config name, arena size, box size, n_turbines
+        ("small", SMALL_ARENA_DIMS, SMALL_BOX_DIMS, 4),
+        ("large", LARGE_ARENA_DIMS, LARGE_BOX_DIMS, 16)
+    ]
+    main(ARENA_SETUPS)
