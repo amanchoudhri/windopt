@@ -8,56 +8,36 @@ from pathlib import Path
 
 import numpy as np
 
-from windopt.constants import PROJECT_ROOT, D, HUB_HEIGHT, SMALL_BOX_DIMS
-from windopt.winc3d.slurm import LESJob, submit_job, SlurmConfig
+from windopt.constants import PROJECT_ROOT, INFLOW_20M, INFLOW_20M_N_TIMESTEPS
+from windopt.winc3d.slurm import LESJob
 from windopt.winc3d.les import start_les
+from windopt.layout import load_layout_batch, Layout
 
 
-def load_turbine_locations(layout: str):
+def load_layout(layout_name: str) -> Layout:
     """
     Load the turbine locations for a given layout.
     """
-    if layout not in ["random", "grid"]:
+    if layout_name not in ["random", "grid"]:
         raise ValueError(f"Invalid layout: {layout}. Must be 'random' or 'grid'.")
+    
+    layouts_file = PROJECT_ROOT / "data" / "initial_points" / "small_arena_les_samples.npz"
+    layouts = load_layout_batch(layouts_file)
 
-    generated_locations = np.load(
-        PROJECT_ROOT / "data" / "initial_points" / "small_arena_les_samples.npy"
-        )
+    random_layout = layouts[0]
+    grid_layout = layouts[-1]
 
-    random_layout = generated_locations[0]
-    grid_layout = generated_locations[-1]
+    return random_layout if layout_name == "random" else grid_layout
 
-    return random_layout if layout == "random" else grid_layout
-
-
-def submit_frequent_viz_job(layout: str, use_precursor: bool = False) -> LESJob:
-    """
-    Submit a job with very frequent visualization and statistics outputs.
-    """
-    locations = load_turbine_locations(layout)
-
-    INFLOW_DIR = PROJECT_ROOT / "simulations" / "small_arena_20m" / "planes"
-    N_TIMESTEPS_PER_FILE = 6000
-
-    run_name = f"validate_les_{layout}"
-    if not use_precursor:
-        run_name += "_no_precursor"
-
-    job = start_les(
-        run_name=run_name,
-        locations=locations,
-        inflow_directory=INFLOW_DIR if use_precursor else None,
-        inflow_n_timesteps=N_TIMESTEPS_PER_FILE if use_precursor else None,
-        debug_mode=False,
-        frequent_viz=True,
-    )
-
-    return job
 
 if __name__ == "__main__":
-    for layout in ["random", "grid"]:
-        for use_precursor in [True, False]:
-            # temporary, runs without precursor are already going.
-            if not use_precursor: break
-            job = submit_frequent_viz_job(layout, use_precursor)
-
+    for layout_name in ["random", "grid"]:
+        layout = load_layout(layout_name)
+        job = start_les(
+            run_name=f"validate_les_{layout_name}",
+            layout=layout,
+            inflow_directory=INFLOW_20M,
+            inflow_n_timesteps=INFLOW_20M_N_TIMESTEPS,
+            debug_mode=False,
+            frequent_viz=True,
+        )

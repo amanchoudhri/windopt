@@ -5,24 +5,20 @@ from pathlib import Path
 from typing import Optional
 from datetime import datetime
 
-import numpy as np
+import pandas as pd
 
-from windopt.constants import D, HUB_HEIGHT, SMALL_BOX_DIMS
-
+from windopt.constants import D, HUB_HEIGHT, PROJECT_ROOT
 from windopt.winc3d.slurm import SlurmConfig, submit_job, LESJob
-from windopt.winc3d.io import make_ad_file, make_in_file
-
-PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
-
+from windopt.winc3d.io import make_ad_file, make_in_file, turbine_results
+from windopt.layout import Layout
 
 def start_les(
     run_name: str,
-    locations: Optional[np.ndarray] = None,
+    layout: Layout,
     inflow_directory: Optional[Path] = None,
     inflow_n_timesteps: Optional[int] = None,
     rotor_diameter: float = D,
     hub_height: float = HUB_HEIGHT,
-    box_size: tuple[float, float, float] = SMALL_BOX_DIMS,
     slurm_config: Optional[SlurmConfig] = None,
     debug_mode: bool = False,
     frequent_viz: bool = False,
@@ -40,8 +36,6 @@ def start_les(
         The diameter of the turbines, in meters.
     hub_height: float
         The hub height of the turbines, in meters.
-    box_size: tuple[float, float, float]
-        The size of the simulation box, in meters.
     slurm_config: Optional[SlurmConfig]
         The SLURM configuration parameters.
     debug_mode: bool
@@ -63,12 +57,12 @@ def start_les(
     turbines_file = outdir / "turbines.ad"
     config_file = outdir / "config.in"
 
-    make_ad_file(locations, rotor_diameter, hub_height, turbines_file)
+    make_ad_file(layout, rotor_diameter, hub_height, turbines_file)
     make_in_file(
         config_file,
-        box_size=box_size,
+        box_size=layout.box_dims,
         path_to_ad_file=turbines_file,
-        n_turbines=locations.shape[0],
+        n_turbines=layout.n_turbines,
         inflow_directory=inflow_directory,
         inflow_n_timesteps=inflow_n_timesteps,
         debug_mode=debug_mode,

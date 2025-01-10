@@ -11,9 +11,10 @@ import numpy as np
 import pandas as pd
 
 from windopt.constants import DT
+from windopt.layout import Layout
 
 def make_ad_file(
-    locations: np.ndarray,
+    layout: Layout,
     diameter: float,
     hub_height: float,
     outfile: Path
@@ -23,8 +24,8 @@ def make_ad_file(
 
     Parameters
     ----------
-    locations: np.ndarray
-        The x, z coordinates of the turbines, shape (n_turbines, 2).
+    layout: Layout
+        The layout of the turbines.
     diameter: float
         The diameter of the turbines, in meters.
     hub_height: float
@@ -39,7 +40,7 @@ def make_ad_file(
     # Nx Ny Nz: The normal vector of the disc (1, 0, 0 means facing in x-direction)
     # D: The diameter of the disc (126 units)
     with open(outfile, "w+") as f:
-        for location in locations:
+        for location in layout.box_coords:
             f.write(f"{location[0]} {hub_height} {location[1]} 1 0 0 {diameter}\n")
 
 def make_in_file(
