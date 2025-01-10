@@ -82,16 +82,11 @@ def start_les(
 
     return job
 
-def process_results(job: LESJob, debug_mode: bool = False) -> float:
+
+def average_farm_power(power_data: pd.DataFrame, debug_mode: bool = False) -> float:
     """
     Process the results of a LES job.
     """
-    if not job.is_complete():
-        raise ValueError("Job is not complete!")
-
-    power_data = job.turbine_results()
-
-    # HARDCODED VALUES
     # TODO: make this dynamic
     N_TIMESTEPS = 45000 if not debug_mode else 1000
     SPINUP_TIMESTEPS = 9000 if not debug_mode else 0
@@ -104,3 +99,15 @@ def process_results(job: LESJob, debug_mode: bool = False) -> float:
     ].sum() / (N_TIMESTEPS - SPINUP_TIMESTEPS)
 
     return float(average_farm_power.iloc[0])
+
+
+def process_results(job: LESJob, debug_mode: bool = False) -> float:
+    """
+    Process the results of a LES job.
+    """
+    if not job.is_complete():
+        raise ValueError("Job is not complete!")
+
+    power_data = job.turbine_results()
+
+    return average_farm_power(power_data, debug_mode)
