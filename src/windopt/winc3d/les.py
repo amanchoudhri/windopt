@@ -1,27 +1,20 @@
 """
 Run large-eddy simulations using SLURM.
 """
-from pathlib import Path
-from typing import Optional
 from datetime import datetime
+from typing import Optional
 
 import pandas as pd
 
-from windopt.constants import D, HUB_HEIGHT, PROJECT_ROOT
+from windopt.constants import PROJECT_ROOT
+from windopt.winc3d.io import turbine_results
 from windopt.winc3d.slurm import SlurmConfig, submit_job, LESJob
-from windopt.winc3d.io import make_ad_file, make_in_file, turbine_results
-from windopt.layout import Layout
+from windopt.winc3d.config import LESConfig
 
 def start_les(
     run_name: str,
-    layout: Layout,
-    inflow_directory: Optional[Path] = None,
-    inflow_n_timesteps: Optional[int] = None,
-    rotor_diameter: float = D,
-    hub_height: float = HUB_HEIGHT,
+    config: LESConfig,
     slurm_config: Optional[SlurmConfig] = None,
-    debug_mode: bool = False,
-    frequent_viz: bool = False,
     ) -> LESJob:
     """
     Start a large-eddy simulation run.
@@ -30,84 +23,82 @@ def start_les(
     ----------
     run_name: str
         The desired name of the run.
-    locations: np.ndarray
-        The x, z coordinates of the turbines, shape (n_turbines, 2).
-    rotor_diameter: float
-        The diameter of the turbines, in meters.
-    hub_height: float
-        The hub height of the turbines, in meters.
+    config: LESConfig
+        Complete configuration for the simulation.
     slurm_config: Optional[SlurmConfig]
         The SLURM configuration parameters.
-    debug_mode: bool
-        Whether to run in debug mode.
-    frequent_viz: bool
-        Whether to run WInc3D with frequent visualization output.
+
     Returns
     -------
     LESJob
         The job object for the submitted job.
     """
     # create a directory in project_root/simulations for the run
-    # with a datetime string appended to the run name
     job_dir_name = f"{run_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     outdir = PROJECT_ROOT / "simulations" / job_dir_name
-
     outdir.mkdir(parents=True, exist_ok=True)
 
-    turbines_file = outdir / "turbines.ad"
-    config_file = outdir / "config.in"
-
-    make_ad_file(layout, rotor_diameter, hub_height, turbines_file)
-    make_in_file(
-        config_file,
-        box_size=layout.box_dims,
-        path_to_ad_file=turbines_file,
-        n_turbines=layout.n_turbines,
-        inflow_directory=inflow_directory,
-        inflow_n_timesteps=inflow_n_timesteps,
-        debug_mode=debug_mode,
-        frequent_viz=frequent_viz,
-        )
+    # Write configuration files
+    in_filename = "config.in"
+    ad_filename = "turbines.ad"
+    config.validate()
+    config.write_winc3d_files(outdir, in_filename, ad_filename)
+    config.to_json(outdir / "les_config.json")
 
     # submit the job
     if slurm_config is None:
         slurm_config = SlurmConfig()
 
     job = submit_job(
-        config_file,
+        input_file=outdir / in_filename,
         working_dir=outdir,
-        turbines_file=turbines_file,
+        turbines_file=(outdir / ad_filename) if config.turbines is not None else None,
         config=slurm_config
-        )
+    )
 
     return job
 
 
-def average_farm_power(power_data: pd.DataFrame, debug_mode: bool = False) -> float:
+def average_farm_power(power_data: pd.DataFrame, config: LESConfig) -> float:
     """
-    Process the results of a LES job.
+    Calculate the average farm power from simulation results.
+
+    Parameters
+    ----------
+    power_data : pd.DataFrame
+        Power output data from the simulation
+    config : LESConfig
+        Configuration used for the simulation
+
+    Returns
+    -------
+    float
+        Average farm power in watts
     """
-    # TODO: make this dynamic
-    N_TIMESTEPS = 45000 if not debug_mode else 1000
-    SPINUP_TIMESTEPS = 9000 if not debug_mode else 0
-    N_OUT_FILES = 5 if not debug_mode else 1
+    n_timesteps = config.numerical.n_steps
+    spinup_timesteps = int(config.output.spinup_time / config.numerical.dt)
 
-    # get the average farm power output after the spinup period, in watts
-    average_farm_power = power_data.loc[
-       (power_data['filenumber'] == N_OUT_FILES),
-       ['Power_ave']
-    ].sum() / (N_TIMESTEPS - SPINUP_TIMESTEPS)
+    n_recording_timesteps = n_timesteps - spinup_timesteps
 
-    return float(average_farm_power.iloc[0])
+    # Get cumulative power sums from final timestep for all turbines
+    final_cumulative_power = power_data.loc[
+        power_data['filenumber'] == config.n_outfiles,
+        'Power_ave'
+    ].sum()  # sum across all turbines
+
+    # Average across all timesteps after spinup
+    average_farm_power = final_cumulative_power / n_recording_timesteps
+
+    return float(average_farm_power)
 
 
-def process_results(job: LESJob, debug_mode: bool = False) -> float:
+def process_results(job: LESJob, config: LESConfig) -> float:
     """
     Process the results of a LES job.
     """
     if not job.is_complete():
         raise ValueError("Job is not complete!")
 
-    power_data = job.turbine_results()
+    power_data = turbine_results(job.job_dir)
 
-    return average_farm_power(power_data, debug_mode)
+    return average_farm_power(power_data, config)
