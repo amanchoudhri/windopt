@@ -22,7 +22,7 @@ import numpy as np
 from windopt.constants import PROJECT_ROOT
 from windopt.layout import load_layout_batch
 from windopt.optim.trial import complete_noiseless_trial, process_completed_les_jobs, run_gch_batch, start_les_batch
-from windopt.optim.utils import create_turbine_parameters, layout_to_params, setup_experiment_logging
+from windopt.optim.logging import logger, configure_logging
 from windopt.optim.config import CampaignConfig, TrialGenerationStrategy
 
 LES_POLLING_INTERVAL = 30
