@@ -1,5 +1,8 @@
+import json
+
 from dataclasses import dataclass
 from enum import StrEnum
+from pathlib import Path
 from typing import Optional
 
 
@@ -40,3 +43,12 @@ class CampaignConfig:
     box_dims: tuple[float, float, float]
     trial_generation_config: TrialGenerationConfig
     debug_mode: bool = False
+    
+    @classmethod
+    def from_json(cls, path: Path) -> 'CampaignConfig':
+        with open(path, 'r') as f:
+            config_dict = json.load(f)
+        config_dict['trial_generation_config'] = TrialGenerationConfig(
+            **config_dict['trial_generation_config']
+            )
+        return cls(**config_dict)
