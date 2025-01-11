@@ -5,11 +5,9 @@ import subprocess
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional
 
-import pandas as pd
-
-from windopt.winc3d.io import is_job_completed_successfully, turbine_results
+from windopt.winc3d.io import is_job_completed_successfully
 
 class LESJob:
     def __init__(self, slurm_job_id: int, job_dir: Path):
@@ -79,14 +77,6 @@ class LESJob:
     def status(self) -> str:
         info = self._job_info()
         return info[1]
-
-    def turbine_results(self) -> Union[pd.DataFrame, None]:
-        """
-        Get the power history of each turbine from the job output.
-        """
-        if not self.is_complete():
-            return None
-        return turbine_results(self.job_dir)
 
 
 @dataclass
