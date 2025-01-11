@@ -27,8 +27,8 @@ def gch(layout: Layout) -> npt.NDArray[np.float64]:
         model = FlorisModel(base_cfg_path)
 
     model.set(
-        layout_x=layout.arena_coords[:, 0],
-        layout_y=layout.arena_coords[:, 1]
+        layout_x=layout.coords[:, 0],
+        layout_y=layout.coords[:, 1]
     )
 
     model.run()
