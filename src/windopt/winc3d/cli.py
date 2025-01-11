@@ -3,74 +3,44 @@ Command-line interface for WInc3D simulation management.
 """
 import argparse
 from pathlib import Path
-from datetime import datetime
 
-import f90nml
-
-from windopt.constants import INFLOW_20M, INFLOW_20M_N_TIMESTEPS, SMALL_ARENA_DIMS
+from windopt.constants import N_STEPS_DEBUG, VIZ_INTERVAL_FREQUENT
+from windopt.winc3d.config import LESConfig
 from windopt.winc3d.les import start_les
-from windopt.winc3d.io import read_turbine_information
-from windopt.layout import Layout
 
 def rerun_simulation(
     job_dir: Path, 
     debug_mode: bool = False,
     frequent_viz: bool = False,
-) -> None:
+    ) -> None:
     """
-    Rerun a simulation from an existing job directory.
+    Rerun a simulation with optional modifications.
     
     Parameters
     ----------
     job_dir : Path
-        Path to the original job directory
+        Directory containing the original simulation
     debug_mode : bool
-        Whether to run in debug mode (shorter simulation)
+        If True, run a shorter simulation for testing
     frequent_viz : bool
-        Whether to output visualization data more frequently
+        If True, output visualization data more frequently
     """
-    config_file = job_dir / "config.in"
-    turbines_file = job_dir / "turbines.ad"
+    # Read existing configuration
+    config = LESConfig.from_json(job_dir / "les_config.json")
+
+    # Modify configuration based on flags
+    if debug_mode:
+        config.numerical.n_steps = N_STEPS_DEBUG
     
-    if not config_file.exists():
-        raise FileNotFoundError(f"No config.in found in {job_dir}")
+    if frequent_viz:
+        config.output.viz_interval = VIZ_INTERVAL_FREQUENT
     
-    if not turbines_file.exists():
-        raise FileNotFoundError(f"No turbines.ad found in {job_dir}")
-    
-    # Read box dimensions from config file
-    config = f90nml.read(config_file)
-    box_size = (
-        float(config['FlowParam']['xlx']),
-        float(config['FlowParam']['yly']),
-        float(config['FlowParam']['zlz'])
-    )
-    
-    # Get turbine locations
-    turbine_info = read_turbine_information(job_dir)
-    layout = Layout(
-        turbine_info[['x', 'z']].values,
-        system="box",
-        arena_dims=SMALL_ARENA_DIMS,
-        box_dims=box_size
-    )
-    
-    # Define new run name
-    run_name = f"rerun_{job_dir.name}"
-    
-    # Start new simulation using the existing API
+    # Start the new simulation
     job = start_les(
-        run_name=run_name,
-        layout=layout,
-        rotor_diameter=float(turbine_info['D'].iloc[0]),
-        hub_height=float(turbine_info['y'].iloc[0]),
-        inflow_directory=INFLOW_20M,
-        inflow_n_timesteps=INFLOW_20M_N_TIMESTEPS,
-        debug_mode=debug_mode,
-        frequent_viz=frequent_viz,
+        run_name=f"rerun_{job_dir.name}",
+        config=config
     )
-    
-    print(f"Submitted job {job.slurm_job_id}")
+    print(f"Reran simulation with job ID: {job.slurm_job_id}")
 
 def main():
     parser = argparse.ArgumentParser(description="WInc3D simulation management")
