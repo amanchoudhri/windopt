@@ -3,11 +3,12 @@ Configuration for the optimization campaign.
 """
 
 import json
-import logging
-import time
 
 from dataclasses import asdict
 from pathlib import Path
+from typing import Optional
+
+import pandas as pd
 
 from ax.service.ax_client import AxClient
 
@@ -16,12 +17,11 @@ from windopt.constants import PROJECT_ROOT
 from windopt.optim.ax_client import (
     setup_ax_client, load_ax_client, save_ax_client_state
 )
+from windopt.optim.batch_counter import BatchCounts
 from windopt.optim.constants import CAMPAIGN_CONFIG_FILENAME
-from windopt.optim.trial import process_completed_les_jobs, run_gch_batch, start_les_batch
+from windopt.optim.trial import run_gch_batch, run_les_batch
 from windopt.optim.logging import logger, configure_logging
-from windopt.optim.config import CampaignConfig, TrialGenerationStrategy
-
-LES_POLLING_INTERVAL = 30
+from windopt.optim.config import CampaignConfig, Fidelity, TrialGenerationConfig, TrialGenerationStrategy
 
 
 def new_campaign(campaign_config: CampaignConfig):
@@ -44,7 +44,7 @@ def new_campaign(campaign_config: CampaignConfig):
         json.dump(asdict(campaign_config), f)
     save_ax_client_state(ax_client, campaign_dir)
     
-    _run_campaign(ax_client, campaign_config, campaign_dir, logger)
+    _run_campaign(ax_client, campaign_config, campaign_dir)
 
 def restart_campaign(campaign_name: str):
     """
@@ -72,13 +72,7 @@ def restart_campaign(campaign_name: str):
     except Exception as e:
         raise ValueError(f"Failed to load campaign state: {e}")
 
-    current_batch = _get_current_batch_index(ax_client, campaign_config)
-    logger.info(f"Continuing from batch {current_batch}")
-    
-    _run_campaign(
-        ax_client, campaign_config, campaign_dir,
-        logger, start_batch=current_batch
-        )
+    _run_campaign(ax_client, campaign_config, campaign_dir)
 
 def _get_campaign_dir(campaign_name: str) -> Path:
     """
@@ -87,24 +81,20 @@ def _get_campaign_dir(campaign_name: str) -> Path:
     return PROJECT_ROOT / "campaigns" / campaign_name
 
 def _run_campaign(
-    ax_client: AxClient,
-    campaign_config: CampaignConfig,
-    campaign_dir: Path,
-    logger: logging.Logger,
-    start_batch: int = 1
-) -> AxClient:
+        ax_client: AxClient,
+        campaign_config: CampaignConfig,
+        campaign_dir: Path
+    ):
     """
     Run the optimization campaign with the specified strategy.
     """
     strategy = campaign_config.trial_generation_config.strategy
     match strategy:
         case TrialGenerationStrategy.LES_ONLY | TrialGenerationStrategy.MULTI_ALTERNATING:
-            return _run_manual_fidelity_select_campaign(
+            _run_manual_fidelity_select_campaign(
                 ax_client,
                 campaign_config,
-                campaign_dir,
-                logger,
-                start_batch=start_batch
+                campaign_dir
             )
         case TrialGenerationStrategy.MULTI_ADAPTIVE:
             raise NotImplementedError("Adaptive multi-fidelity strategy not yet implemented!")
@@ -117,99 +107,77 @@ def _run_campaign(
 def _run_manual_fidelity_select_campaign(
         ax_client: AxClient,
         campaign_config: CampaignConfig,
-        campaign_dir: Path,
-        logger: logging.Logger,
-        start_batch: int = 1
+        campaign_dir: Path
     ):
     """
     Run a campaign where fidelities are manually selected at each iteration.
     """
-    batch_idx = start_batch
-    continue_running = True
+    previous_trials = get_previous_trials(ax_client)
+    batch_counter = BatchCounts.from_previous_trials(previous_trials)
 
     trial_config = campaign_config.trial_generation_config
 
-    while continue_running:
-        if trial_config.max_les_batches is not None:
-            if batch_idx >= trial_config.max_les_batches:
-                continue_running = False
-            logger.info(f"Running batch {batch_idx} of {trial_config.max_les_batches}")
-        else:
-            logger.info(f"Running batch {batch_idx}")
-
-        if trial_config.strategy == TrialGenerationStrategy.MULTI_ALTERNATING:
-            # Run the GCH trials
-            for i in range(trial_config.gch_batches_per_les_batch):
-                logger.info(f"Running GCH batch {i + 1} of {trial_config.gch_batches_per_les_batch}")
-                run_gch_batch(ax_client, campaign_config, trial_config.gch_batch_size)
-
-        if trial_config.strategy != TrialGenerationStrategy.GCH_ONLY:
-            # Queue up the batch of LES trials
-            active_jobs = start_les_batch(
-                ax_client,
-                campaign_config,
-                trial_config.les_batch_size,
-                campaign_config.debug_mode,
-                logger
-            )
-
-            # briefly wait to let SLURM process the submission
-            # before watching the jobs
-            time.sleep(30)
-
-            # Wait for all jobs in batch to complete and process results
-            while active_jobs:
-                active_jobs = process_completed_les_jobs(
-                    ax_client,
-                    active_jobs,
-                    logger
-                )
-
-                # Save current experiment state to file
-                save_ax_client_state(ax_client, campaign_dir)
-
-                # Wait before checking again
-                time.sleep(LES_POLLING_INTERVAL)
-
-        batch_idx += 1
+    while _should_continue(batch_counter, trial_config):
+        logger.info(f"Running batch {batch_counter.total}")
+        
+        fidelity = get_next_fidelity(batch_counter, trial_config)
+        
+        match fidelity:
+            case Fidelity.LES:
+                run_les_batch(ax_client, campaign_config)
+            case Fidelity.GCH:
+                run_gch_batch(ax_client, campaign_config)
+        
+        batch_counter.increment(fidelity)
+        save_ax_client_state(ax_client, campaign_dir)
 
     return ax_client
 
-def _get_current_batch_index(ax_client: AxClient, campaign_config: CampaignConfig) -> int:
+
+def get_previous_trials(ax_client: AxClient, filter_manual: bool = True) -> pd.DataFrame:
+    """Get the previous trials from the Ax client."""
+    df = ax_client.get_trials_data_frame()
+    if filter_manual:
+        df = df[df['generation_method'] != 'Manual']
+    return df
+
+def get_next_fidelity(
+    batch_counter: BatchCounts,
+    trial_config: TrialGenerationConfig,
+) -> Fidelity:
     """
-    Determine the current batch index from completed trials.
-        
-    Returns:
-        The next batch index to run (1-based indexing)
+    Determine the next fidelity to evaluate based on strategy and current state.
+    Pure function with no side effects.
     """
-    trials_df = ax_client.get_trials_data_frame()
-    if trials_df.empty:
-        return 1
-    
-    completed_df = trials_df[trials_df['trial_status'] == 'COMPLETED']
-    if completed_df.empty:
-        return 1
-
-    # Exclude manual trials, which are standard initial trial data
-    opt_df = completed_df[completed_df['generation_method'] != 'Manual']
-
-    strategy = campaign_config.trial_generation_config.strategy
-    trial_config = campaign_config.trial_generation_config
-    
-    n_gch_trials = len(opt_df[opt_df['fidelity'] == 'gch'])
-    n_les_trials = len(opt_df[opt_df['fidelity'] == 'les'])
-
-    match strategy:
+    match trial_config.strategy:
         case TrialGenerationStrategy.GCH_ONLY:
-            n_complete_batches = n_gch_trials // trial_config.gch_batch_size
+            return Fidelity.GCH
         case TrialGenerationStrategy.LES_ONLY:
-            n_complete_batches = n_les_trials // trial_config.les_batch_size
+            return Fidelity.LES
         case TrialGenerationStrategy.MULTI_ALTERNATING:
-            n_gch_batches = n_gch_trials // trial_config.gch_batch_size
-            n_complete_batches = n_gch_batches // trial_config.gch_batches_per_les_batch
-        case TrialGenerationStrategy.MULTI_ADAPTIVE:
-            raise NotImplementedError("Adaptive multi-fidelity strategy not yet implemented!")
+            if trial_config.alternation_pattern is None:
+                raise ValueError("Alternation pattern required for MULTI_ALTERNATING")
+            return trial_config.alternation_pattern.get_next_fidelity(
+                batch_counter.total
+            )
         case _:
-            raise ValueError(f"Unknown strategy: {strategy}")
+            raise ValueError(f"Unsupported strategy: {trial_config.strategy}")
+
+def _should_continue(
+    batch_counter: BatchCounts,
+    config: TrialGenerationConfig,
+) -> bool:
+    """
+    Determine if the campaign should continue based on batch counts and limits.
+    """
+    def _within_limit(limit: Optional[int], count: int, name: str) -> bool:
+        is_within = limit is None or count < limit
+        if not is_within:
+            logger.info(f"Stopping campaign: Reached {name} limit of {limit}")
+        return is_within
     
-    return n_complete_batches + 1
+    return all([
+        _within_limit(config.max_batches, batch_counter.total, "total batch"),
+        _within_limit(config.max_les_batches, batch_counter.les, "LES batch"),
+        _within_limit(config.max_gch_batches, batch_counter.gch, "GCH batch"),
+    ])
