@@ -2,7 +2,7 @@
 Trial generation and management functions for both LES and GCH evaluations.
 """
 
-import logging
+import time
 import warnings
 
 from ax.core.observation import ObservationFeatures
@@ -15,15 +15,19 @@ from windopt.constants import (
 )
 from windopt.gch import gch
 from windopt.optim.config import CampaignConfig
+from windopt.optim.logging import logger
 from windopt.optim.utils import layout_from_ax_params
 from windopt.winc3d import start_les, process_results
-from windopt.winc3d.config import FlowConfig, InflowConfig, LESConfig, NumericalConfig, OutputConfig, TurbineConfig
+from windopt.winc3d.config import (
+    FlowConfig, InflowConfig, LESConfig, NumericalConfig, OutputConfig, TurbineConfig
+)
 from windopt.winc3d.io import cleanup_viz_files
 from windopt.winc3d.slurm import LESJob
 
 # suppress pandas FutureWarning
 warnings.filterwarnings("ignore", category=FutureWarning)
 
+LES_POLLING_INTERVAL = 30
 
 def complete_noiseless_trial(ax_client: AxClient, trial_index: int, power: float):
     """
@@ -34,12 +38,12 @@ def complete_noiseless_trial(ax_client: AxClient, trial_index: int, power: float
         raw_data={'power': (power, 0.0)}
     )
 
-def run_gch_batch(ax_client: AxClient, campaign_config: CampaignConfig, batch_size: int):
+def run_gch_batch(ax_client: AxClient, campaign_config: CampaignConfig):
     """
     Run a batch of GCH trials on the provided Ax client.
     """
     trial_index_to_params, _ = ax_client.get_next_trials(
-        max_trials=batch_size,
+        max_trials=campaign_config.trial_generation_config.gch_batch_size,
         fixed_features=ObservationFeatures(
             {"fidelity": "gch"}
         )
@@ -49,35 +53,40 @@ def run_gch_batch(ax_client: AxClient, campaign_config: CampaignConfig, batch_si
         power = gch(layout).sum()
         complete_noiseless_trial(ax_client, trial_index, power)
 
-def start_les_batch(
+def run_les_batch(ax_client: AxClient, campaign_config: CampaignConfig):
+    """
+    Run a batch of LES trials on the provided Ax client.
+    """
+    active_jobs = _start_les_batch(ax_client, campaign_config)
+
+    # briefly wait to let SLURM process the submission
+    # before watching the jobs
+    time.sleep(30)
+
+    # Wait for all jobs in batch to complete and process results
+    while active_jobs:
+        active_jobs = _process_completed_les_jobs(ax_client, active_jobs)
+
+        # Wait before checking again
+        time.sleep(LES_POLLING_INTERVAL)
+
+def _start_les_batch(
         ax_client: AxClient,
         campaign_config: CampaignConfig,
-        batch_size: int,
-        debug_mode: bool,
-        logger: logging.Logger
         ) -> list[tuple[LESJob, int]]:
     """
     Start a batch of LES trials on the provided Ax client.
     """
     logger.info(f"Generating LES trial batch")
     trial_index_to_params, _ = ax_client.get_next_trials(
-        max_trials=batch_size,
-        fixed_features=ObservationFeatures(
-            {"fidelity": "les"}
-        )
+        max_trials=campaign_config.trial_generation_config.les_batch_size,
+        fixed_features=ObservationFeatures({"fidelity": "les"})
     )
     jobs = []
     for trial_index, parameters in trial_index_to_params.items():
         layout = layout_from_ax_params(campaign_config, parameters)
-        n_steps = N_STEPS_PRODUCTION if not debug_mode else N_STEPS_DEBUG
-        viz_interval = VIZ_INTERVAL_DEFAULT if not debug_mode else VIZ_INTERVAL_FREQUENT
-        config = LESConfig(
-            box_dims=campaign_config.box_dims,
-            numerical=NumericalConfig(n_steps=n_steps),
-            output=OutputConfig(viz_interval=viz_interval),
-            turbines=TurbineConfig(layout=layout),
-            inflow=InflowConfig(directory=INFLOW_20M, n_timesteps=INFLOW_20M_N_TIMESTEPS)
-        )
+        config = _create_les_config(campaign_config, layout)
+
         logger.info(f"Submitting LES job for trial {trial_index}")
         # Start LES job
         job = start_les(
@@ -89,31 +98,52 @@ def start_les_batch(
 
     return jobs
 
-def process_completed_les_jobs(
+def _create_les_config(
+    campaign_config: CampaignConfig,
+    layout: list[tuple[float, float]],
+) -> LESConfig:
+    """
+    Create LES configuration for a trial.
+    """
+    n_steps = N_STEPS_PRODUCTION if not campaign_config.debug_mode else N_STEPS_DEBUG
+    viz_interval = VIZ_INTERVAL_DEFAULT if not campaign_config.debug_mode else VIZ_INTERVAL_FREQUENT
+    
+    return LESConfig(
+        box_dims=campaign_config.box_dims,
+        numerical=NumericalConfig(n_steps=n_steps),
+        output=OutputConfig(viz_interval=viz_interval),
+        turbines=TurbineConfig(layout=layout),
+        inflow=InflowConfig(
+            directory=INFLOW_20M,
+            n_timesteps=INFLOW_20M_N_TIMESTEPS
+        )
+    )
+
+def _process_completed_les_jobs(
         ax_client: AxClient,
         active_jobs: list[tuple[LESJob, int]],
-        logger: logging.Logger,
-        ):
+        ) -> list[tuple[LESJob, int]]:
     """
-    Process completed LES jobs.
+    Process completed/failed LES jobs and return the remaining active jobs.
     """
-    for job, trial_index in active_jobs[:]:
+    remaining_jobs = []
+    for job, trial_index in active_jobs:
+        if not (job.is_complete() or job.is_failed()):
+            remaining_jobs.append((job, trial_index))
+            continue
+
         if job.is_complete():
             try:
-                config = LESConfig.from_json(job.job_dir / "les_config.json")
-                power = process_results(job, config)
+                power = process_results(job)
                 complete_noiseless_trial(ax_client, trial_index, power)
             except Exception as e:
                 logger.error(f"Error processing results for trial {trial_index}: {e}")
                 ax_client.log_trial_failure(trial_index)
-            active_jobs.remove((job, trial_index))
-
-            # Clean up large visualization files
-            cleanup_viz_files(job.job_dir)
 
         elif job.is_failed():
             logger.error(f"LES job {trial_index} failed!")
             ax_client.log_trial_failure(trial_index)
-            active_jobs.remove((job, trial_index))
 
-    return active_jobs
+        cleanup_viz_files(job.job_dir)
+
+    return remaining_jobs

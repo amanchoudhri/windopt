@@ -92,7 +92,7 @@ def average_farm_power(power_data: pd.DataFrame, config: LESConfig) -> float:
     return float(average_farm_power)
 
 
-def process_results(job: LESJob, config: LESConfig) -> float:
+def process_results(job: LESJob) -> float:
     """
     Process the results of a LES job.
     """
@@ -101,4 +101,4 @@ def process_results(job: LESJob, config: LESConfig) -> float:
 
     power_data = turbine_results(job.job_dir)
 
-    return average_farm_power(power_data, config)
+    return average_farm_power(power_data)
