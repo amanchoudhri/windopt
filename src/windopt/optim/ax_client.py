@@ -141,6 +141,18 @@ def load_initial_data(ax_client: AxClient, fidelity: str = 'gch'):
         _, trial_index = ax_client.attach_trial(parameters=params)
         complete_noiseless_trial(ax_client, trial_index, power)
 
+def save_ax_client_state(ax_client: AxClient, campaign_dir: Path):
+    """
+    Save Ax client state to disk.
+    
+    Args:
+        ax_client: Client to save
+        campaign_dir: Directory to save state in
+    """
+    exp_to_df(ax_client.experiment).to_csv(str(campaign_dir / TRIALS_FILENAME))
+    save_experiment(ax_client.experiment, str(campaign_dir / EXPERIMENT_FILENAME))
+    ax_client.save_to_json_file(str(campaign_dir / AX_CLIENT_FILENAME)) 
+
 def load_ax_client(
         campaign_dir: Path,
         use_cuda: bool = True
@@ -156,27 +168,23 @@ def load_ax_client(
     """
     with open(campaign_dir / AX_CLIENT_FILENAME, 'r') as f:
         ax_client_json = json.load(f)
-
-    if use_cuda:
-        if torch.cuda.is_available():
-            device = torch.device("cuda")
-            logger.info(f"CUDA available, using device {device} for GP model")
-            model_kwargs = ax_client_json['generation_strategy']['steps'][0]['model_kwargs']
-            model_kwargs['torch_device'] = {'__type': 'torch_device', 'value': 'cuda'}
-            ax_client_json['generation_strategy']['steps'][0]['model_kwargs'] = model_kwargs
-        else:
-            logger.warning("CUDA not available, using CPU for GP model")
-
+        
+    ax_client_json = _update_client_cuda_state(ax_client_json, use_cuda)
+    
     return AxClient.from_json_snapshot(ax_client_json)
 
-def save_ax_client_state(ax_client: AxClient, campaign_dir: Path):
+def _update_client_cuda_state(ax_client_json: dict, use_cuda: bool):
     """
-    Save Ax client state to disk.
-    
-    Args:
-        ax_client: Client to save
-        campaign_dir: Directory to save state in
+    Update the Ax client state to use the correct device.
     """
-    exp_to_df(ax_client.experiment).to_csv(str(campaign_dir / TRIALS_FILENAME))
-    save_experiment(ax_client.experiment, str(campaign_dir / EXPERIMENT_FILENAME))
-    ax_client.save_to_json_file(str(campaign_dir / AX_CLIENT_FILENAME)) 
+    # TODO: hacky. relies on the specific generation strategy defined
+    # by _generation_strategy()
+    model_kwargs = ax_client_json['generation_strategy']['steps'][0]['model_kwargs']
+    if use_cuda and torch.cuda.is_available():
+        logger.info(f"CUDA available, using GPU for GP model")
+        model_kwargs['torch_device'] = {'__type': 'torch_device', 'value': 'cuda'}
+    else:
+        logger.info(f"CUDA not available, using CPU for GP model")
+        model_kwargs.pop('torch_device', None)
+    ax_client_json['generation_strategy']['steps'][0]['model_kwargs'] = model_kwargs
+    return ax_client_json
