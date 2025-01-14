@@ -1,0 +1,1 @@
+{"name": "les_only", "n_turbines": 4, "arena_dims": [755.28, 755.28], "box_dims": [2004, 504, 1336], "trial_generation_config": {"strategy": "les_only", "max_batches": null, "les_batch_size": 5, "gch_batch_size": null, "alternation_pattern": null, "max_les_batches": 105, "max_gch_batches": null}, "debug_mode": false}

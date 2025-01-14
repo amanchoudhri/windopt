@@ -1,0 +1,21 @@
+{
+    "name": "mf_alternating",
+    "n_turbines": 4,
+    "arena_dims": [
+        755.28,
+        755.28
+    ],
+    "box_dims": [
+        2004,
+        504,
+        1336
+    ],
+    "trial_generation_config": {
+        "strategy": "multi_alternating",
+        "les_batch_size": 5,
+        "gch_batch_size": 5,
+        "max_les_batches": 50,
+        "alternation_pattern": {"sequence": ["gch", "gch", "gch", "gch", "gch", "les"]}
+    },
+    "debug_mode": false
+}
