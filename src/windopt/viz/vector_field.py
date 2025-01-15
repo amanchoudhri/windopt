@@ -1,5 +1,6 @@
 from argparse import ArgumentParser
 from pathlib import Path
+from typing import Optional
 
 import numpy as np
 
@@ -218,7 +219,7 @@ def plot_umean(jobdir: Path):
         y=z_coords,
     )
 
-def inst_and_mean_velocity_field(jobdir: Path, file_number: int):
+def inst_and_mean_velocity_field(jobdir: Path, file_number: int, save_path: Optional[Path] = None):
     umean = load_vector_field(jobdir / 'out' / 'umean.dat', mesh_shape=MESH_SHAPE_20M) / 36000
     uinst = load_vector_field(
         vector_field_file(jobdir / 'out', file_number, 'ux'),
@@ -301,9 +302,8 @@ def inst_and_mean_velocity_field(jobdir: Path, file_number: int):
     fig.update_yaxes(title='z [m]', row=1, col=1)
     fig.update_yaxes(title='z [m]', row=1, col=2)
 
-    fig.show()
-
-    fig.write_image(PROJECT_ROOT / 'img' / 'ux_and_umean.png')
+    if save_path:
+        fig.write_image(save_path)
 
     return fig
 
