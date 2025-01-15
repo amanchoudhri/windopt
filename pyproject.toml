@@ -11,6 +11,7 @@ dependencies = [
     "ax-platform>=0.4.0",
     "f90nml>=1.4.4",
     "floris>=4.2.1",
+    "kaleido==0.2.1",
     "seaborn>=0.13.2",
 ]
 
