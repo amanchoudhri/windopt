@@ -101,4 +101,6 @@ def process_results(job: LESJob) -> float:
 
     power_data = turbine_results(job.job_dir)
 
-    return average_farm_power(power_data)
+    config = LESConfig.from_json(job.job_dir / "les_config.json")
+
+    return average_farm_power(power_data, config)
