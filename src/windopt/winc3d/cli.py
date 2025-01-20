@@ -8,6 +8,19 @@ from windopt.constants import N_STEPS_DEBUG, VIZ_INTERVAL_FREQUENT
 from windopt.winc3d.config import LESConfig
 from windopt.winc3d.les import start_les
 
+def run_new_simulation(config_path: Path) -> None:
+    """
+    Run a new simulation with the provided configuration.
+    """
+    config = LESConfig.from_yaml(config_path)
+    
+    # Start the new simulation
+    job = start_les(
+        run_name=f"new_{config_path.stem}",
+        config=config
+    )
+    print(f"Started new simulation with job ID: {job.slurm_job_id}")
+
 def rerun_simulation(
     job_dir: Path, 
     debug_mode: bool = False,
@@ -46,6 +59,14 @@ def main():
     parser = argparse.ArgumentParser(description="WInc3D simulation management")
     subparsers = parser.add_subparsers(dest="command", help="Command to execute")
     
+    # New simulation command
+    new_parser = subparsers.add_parser("new", help="Run a new simulation with provided config")
+    new_parser.add_argument(
+        "config_path",
+        type=Path,
+        help="Path to YAML configuration file"
+    )
+    
     # Rerun command
     rerun_parser = subparsers.add_parser("rerun", help="Rerun an existing simulation")
     rerun_parser.add_argument(
@@ -66,7 +87,9 @@ def main():
     
     args = parser.parse_args()
     
-    if args.command == "rerun":
+    if args.command == "new":
+        run_new_simulation(args.config_path)
+    elif args.command == "rerun":
         rerun_simulation(
             args.job_dir,
             debug_mode=args.debug,
