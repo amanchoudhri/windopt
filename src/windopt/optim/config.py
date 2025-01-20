@@ -3,7 +3,7 @@ import json
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 class Fidelity(StrEnum):
     GCH = "gch"
@@ -24,9 +24,8 @@ class AlternationPattern:
         return self.sequence[batch_idx % len(self.sequence)]
     
     @classmethod
-    def from_json(cls, path: Path) -> "AlternationPattern":
-        with open(path, 'r') as f:
-            config_dict = json.load(f)
+    def from_dict(cls, config_dict: dict) -> "AlternationPattern":
+        """Create an AlternationPattern from a dictionary configuration."""
         sequence = [Fidelity(fidelity) for fidelity in config_dict['sequence']]
         return cls(sequence)
 
@@ -65,12 +64,12 @@ class TrialGenerationConfig:
                 )
                 
     @classmethod
-    def from_json(cls, path: Path) -> "TrialGenerationConfig":
-        with open(path, 'r') as f:
-            config_dict = json.load(f)
-        config_dict['alternation_pattern'] = AlternationPattern.from_json(
-            Path(config_dict['alternation_pattern'])
-        )
+    def from_dict(cls, config_dict: dict) -> "TrialGenerationConfig":
+        """Create a TrialGenerationConfig from a dictionary configuration."""
+        if 'alternation_pattern' in config_dict and config_dict['alternation_pattern']:
+            config_dict['alternation_pattern'] = AlternationPattern.from_dict(
+                config_dict['alternation_pattern']
+            )
         return cls(**config_dict)
 
 @dataclass
@@ -81,12 +80,66 @@ class CampaignConfig:
     box_dims: tuple[float, float, float]
     trial_generation_config: TrialGenerationConfig
     debug_mode: bool = False
+    les_config_path: Optional[str] = None
     
+    def __post_init__(self):
+        """Validate configuration after initialization."""
+        if self.n_turbines <= 0:
+            raise ValueError("Number of turbines must be positive")
+        
+        if any(dim <= 0 for dim in self.arena_dims):
+            raise ValueError("Arena dimensions must be positive")
+            
+        if any(dim <= 0 for dim in self.box_dims):
+            raise ValueError("Box dimensions must be positive")
+            
+        if self.les_config_path is not None:
+            path = Path(self.les_config_path)
+            if not path.exists():
+                raise ValueError(f"LES config file not found: {self.les_config_path}")
+    
+    def to_dict(self) -> dict:
+        """Convert the config to a dictionary for serialization."""
+        return {
+            "name": self.name,
+            "n_turbines": self.n_turbines,
+            "arena_dims": self.arena_dims,
+            "box_dims": self.box_dims,
+            "trial_generation_config": self.trial_generation_config.__dict__,
+            "debug_mode": self.debug_mode,
+            "les_config_path": self.les_config_path
+        }
+    
+    def save(self, path: Union[str, Path]) -> None:
+        """Save the configuration to a JSON file."""
+        path = Path(path) if isinstance(path, str) else path
+        with path.open('w') as f:
+            json.dump(self.to_dict(), f, indent=2)
+
     @classmethod
-    def from_json(cls, path: Path) -> 'CampaignConfig':
-        with open(path, 'r') as f:
-            config_dict = json.load(f)
-        config_dict['trial_generation_config'] = TrialGenerationConfig.from_json(
-            Path(config_dict['trial_generation_config'])
+    def from_dict(cls, config_dict: dict) -> 'CampaignConfig':
+        """Create a CampaignConfig from a dictionary configuration."""
+        config_dict = config_dict.copy()  # Avoid modifying the input dict
+        config_dict['trial_generation_config'] = TrialGenerationConfig.from_dict(
+            config_dict['trial_generation_config']
         )
         return cls(**config_dict)
+
+    @classmethod
+    def from_json(cls, path: Union[str, Path]) -> 'CampaignConfig':
+        """Load a CampaignConfig from a JSON file.
+        
+        Args:
+            path: Path to the JSON configuration file
+            
+        Returns:
+            CampaignConfig: The loaded configuration
+            
+        Raises:
+            FileNotFoundError: If the config file doesn't exist
+            JSONDecodeError: If the config file isn't valid JSON
+        """
+        path = Path(path) if isinstance(path, str) else path
+        with path.open('r') as f:
+            config_dict = json.load(f)
+        return cls.from_dict(config_dict)
