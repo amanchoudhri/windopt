@@ -12,6 +12,7 @@ dependencies = [
     "f90nml>=1.4.4",
     "floris>=4.2.1",
     "kaleido==0.2.1",
+    "pytest>=8.3.4",
     "seaborn>=0.13.2",
 ]
 
