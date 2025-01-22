@@ -116,7 +116,7 @@ class LESConfig:
             })
         
         # Inflow configuration
-        if self.inflow.directory is not None:
+        if self.inflow is not None:
             config["FileParam"].update({
                 "InflowPath": f'{str(self.inflow.directory)}/',
                 "NTimeSteps": self.inflow.n_timesteps,
@@ -139,6 +139,9 @@ class LESConfig:
 
     def _write_ad_file(self, outfile: Path) -> None:
         """Write the turbine .ad file."""
+        if self.turbines is None:
+            raise ValueError("TurbineConfig must be set to write an .ad file")
+        
         with open(outfile, "w+") as f:
             for location in self.turbines.layout.get_box_coords(self.box_dims):
                 f.write(
@@ -226,7 +229,7 @@ class FlowConfig:
     """
     flow_type: FlowType = "precursor"
     reynolds_number: float = 10000
-    
+
     inflow_velocity: tuple[float, float] = (10.0, 10.0)
     turbulence_intensity: tuple[float, float] = (0.125, 0.0)
 
@@ -311,7 +314,7 @@ class TurbineConfig:
     hub_height: float = HUB_HEIGHT
     
     @classmethod
-    def from_ad_file(cls, ad_file: PathLike, arena_dims: tuple[float, float, float]) -> 'TurbineConfig':
+    def from_ad_file(cls, ad_file: PathLike, arena_dims: tuple[float, float]) -> 'TurbineConfig':
         """Create a TurbineConfig from an .ad file."""
         turbines_df = read_turbine_information(Path(ad_file))
         layout = Layout(
