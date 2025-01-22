@@ -5,8 +5,8 @@ Trial generation and management functions for both LES and GCH evaluations.
 import time
 import warnings
 
-from ax.core.observation import ObservationFeatures
 from ax.service.ax_client import AxClient
+from ax.service.utils.instantiation import FixedFeatures
 
 from windopt.constants import (
     INFLOW_20M, INFLOW_20M_N_TIMESTEPS,
@@ -14,6 +14,7 @@ from windopt.constants import (
     VIZ_INTERVAL_DEFAULT, VIZ_INTERVAL_FREQUENT
 )
 from windopt.gch import gch
+from windopt.layout import Layout
 from windopt.optim.config import CampaignConfig
 from windopt.optim.log import logger
 from windopt.optim.utils import layout_from_ax_params
@@ -42,11 +43,12 @@ def run_gch_batch(ax_client: AxClient, campaign_config: CampaignConfig):
     """
     Run a batch of GCH trials on the provided Ax client.
     """
+    if campaign_config.trial_generation_config.gch_batch_size is None:
+        raise ValueError("GCH batch size is not set")
+    
     trial_index_to_params, _ = ax_client.get_next_trials(
         max_trials=campaign_config.trial_generation_config.gch_batch_size,
-        fixed_features=ObservationFeatures(
-            {"fidelity": "gch"}
-        )
+        fixed_features=FixedFeatures(parameters={"fidelity": "gch"}),
     )
     for trial_index, parameters in trial_index_to_params.items():
         layout = layout_from_ax_params(campaign_config, parameters)
@@ -67,7 +69,6 @@ def run_les_batch(ax_client: AxClient, campaign_config: CampaignConfig):
     while active_jobs:
         active_jobs = _process_completed_les_jobs(ax_client, active_jobs)
 
-        # Wait before checking again
         time.sleep(LES_POLLING_INTERVAL)
 
 def _start_les_batch(
@@ -80,7 +81,7 @@ def _start_les_batch(
     logger.info(f"Generating LES trial batch")
     trial_index_to_params, _ = ax_client.get_next_trials(
         max_trials=campaign_config.trial_generation_config.les_batch_size,
-        fixed_features=ObservationFeatures({"fidelity": "les"})
+        fixed_features=FixedFeatures(parameters={"fidelity": "les"}),
     )
     jobs = []
     for trial_index, parameters in trial_index_to_params.items():
@@ -88,7 +89,6 @@ def _start_les_batch(
         config = _create_les_config(campaign_config, layout)
 
         logger.info(f"Submitting LES job for trial {trial_index}")
-        # Start LES job
         job = start_les(
             run_name=f"{campaign_config.name}_trial_{trial_index}",
             config=config,
@@ -100,11 +100,31 @@ def _start_les_batch(
 
 def _create_les_config(
     campaign_config: CampaignConfig,
-    layout: list[tuple[float, float]],
+    layout: Layout,
 ) -> LESConfig:
     """
-    Create LES configuration for a trial.
+    Create LES configuration for a trial, optionally loading from a YAML path.
     """
+    if campaign_config.les_config_path:
+        logger.info(f"Loading LESConfig from YAML: {campaign_config.les_config_path}")
+        config = LESConfig.from_yaml(campaign_config.les_config_path)
+
+        # Override layout with the current trial's layout
+        if config.turbines is None:
+            config.turbines = TurbineConfig(layout=layout)
+        else:
+            config.turbines.layout = layout
+
+        # Validate box_dims
+        if config.box_dims != campaign_config.box_dims:
+            raise ValueError(
+                f"LES configuration box dimensions {config.box_dims} "
+                f"do not match campaign dimensions {campaign_config.box_dims}"
+            )
+
+        return config
+    
+    # existing default approach
     n_steps = N_STEPS_PRODUCTION if not campaign_config.debug_mode else N_STEPS_DEBUG
     viz_interval = VIZ_INTERVAL_DEFAULT if not campaign_config.debug_mode else VIZ_INTERVAL_FREQUENT
     
