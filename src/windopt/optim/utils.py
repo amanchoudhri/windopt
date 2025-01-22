@@ -1,13 +1,9 @@
-import logging
-
-from datetime import datetime
 from typing import Any
 
 import numpy as np
 
 from ax.core.types import TParameterization
 
-from windopt.constants import PROJECT_ROOT
 from windopt.layout import Layout
 from windopt.optim.config import CampaignConfig
 
@@ -25,11 +21,13 @@ def create_turbine_parameters(
         params.append({
             'name': f'x{i}',
             'type': 'range',
+            'value_type': 'float',
             'bounds': [0.0, arena_dims[0]],
         })
         params.append({
             'name': f'z{i}',
             'type': 'range',
+            'value_type': 'float',
             'bounds': [0.0, arena_dims[1]],
         })
     if optimize_angles:
@@ -48,7 +46,7 @@ def locations_from_ax_params(params: TParameterization, N_turbines: int) -> np.n
     return locations
 
 
-def layout_from_ax_params(campaign_config: CampaignConfig, params: TParameterization) -> Layout:
+def layout_from_ax_params(campaign_config: CampaignConfig, params: dict[str, Any]) -> Layout:
     """
     Create a Layout object from an Ax parameter dict.
     """
