@@ -89,19 +89,22 @@ def _run_campaign(
     Run the optimization campaign with the specified strategy.
     """
     strategy = campaign_config.trial_generation_config.strategy
-    match strategy:
-        case TrialGenerationStrategy.LES_ONLY | TrialGenerationStrategy.MULTI_ALTERNATING:
+    
+    is_manual_strategy = strategy in [
+        TrialGenerationStrategy.GCH_ONLY,
+        TrialGenerationStrategy.LES_ONLY,
+        TrialGenerationStrategy.MULTI_ALTERNATING
+    ]
+    if is_manual_strategy:
             _run_manual_fidelity_select_campaign(
                 ax_client,
                 campaign_config,
                 campaign_dir
             )
-        case TrialGenerationStrategy.MULTI_ADAPTIVE:
-            raise NotImplementedError("Adaptive multi-fidelity strategy not yet implemented!")
-        case TrialGenerationStrategy.GCH_ONLY:
-            raise NotImplementedError("GCH only strategy not yet implemented!")
-        case _:
-            raise ValueError(f"Unknown strategy: {strategy}")
+    elif strategy == TrialGenerationStrategy.MULTI_ADAPTIVE:
+        raise NotImplementedError("Adaptive multi-fidelity strategy not yet implemented!")
+    else:
+        raise ValueError(f"Unknown strategy: {strategy}")
 
 
 def _run_manual_fidelity_select_campaign(
