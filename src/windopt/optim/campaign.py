@@ -20,7 +20,7 @@ from windopt.optim.ax_client import (
 from windopt.optim.batch_counter import BatchCounts
 from windopt.optim.constants import CAMPAIGN_CONFIG_FILENAME
 from windopt.optim.trial import run_gch_batch, run_les_batch
-from windopt.optim.logging import logger, configure_logging
+from windopt.optim.log import logger, configure_logging
 from windopt.optim.config import CampaignConfig, Fidelity, TrialGenerationConfig, TrialGenerationStrategy
 
 

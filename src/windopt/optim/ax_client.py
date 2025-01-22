@@ -26,7 +26,7 @@ from windopt.optim.constants import (
 )
 from windopt.optim.trial import complete_noiseless_trial
 from windopt.optim.utils import create_turbine_parameters, layout_to_params
-from windopt.optim.logging import logger
+from windopt.optim.log import logger
 
 # Model configuration
 MULTI_TYPE_TRANSFORMS = [

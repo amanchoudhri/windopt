@@ -15,7 +15,7 @@ from windopt.constants import (
 )
 from windopt.gch import gch
 from windopt.optim.config import CampaignConfig
-from windopt.optim.logging import logger
+from windopt.optim.log import logger
 from windopt.optim.utils import layout_from_ax_params
 from windopt.winc3d import start_les, process_results
 from windopt.winc3d.config import (
