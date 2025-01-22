@@ -6,7 +6,7 @@ A Python framework for optimizing wind farm turbine layouts using multi-fidelity
 
 Wind farm layout optimization is crucial for maximizing power output.
 Gold-standard approaches using high-fidelity simulations are computationally expensive,
-and approximate solutions using cheap alternatives like analytic wake models fail to capture the
+and approximate solutions using cheap alternatives like analytic wake models may fail to capture the
 complex dynamics of the flow through wind farms.
 This project implements a multi-fidelity optimization approach that:
 
