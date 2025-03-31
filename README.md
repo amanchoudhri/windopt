@@ -8,7 +8,7 @@ Wind farms produce more power when turbines are optimally positioned, but findin
 
 This project *adaptively combines information* from both approaches to efficiently find optimal layouts.
 
-Preliminary results indicate that the multi-fidelity approach can find **near-optimal layouts with significantly (60%) fewer** expensive LES evaluations compared to single-fidelity methods.
+[Preliminary results](doc/bempedelis-report.pdf) indicate that the multi-fidelity approach can find **near-optimal layouts with significantly (60%) fewer** expensive LES evaluations compared to single-fidelity methods.
 
 ![Optimization Convergence Comparison](img/power-trajectories.png)
 *Multi-fidelity optimization (right) reaches near-optimal designs in <20 simulations (4 batches), while single-fidelity LES optimization (left) requires 60+ simulations (12+ batches) to achieve similar performance. Both significantly outperform a standard grid layout (red line).*
