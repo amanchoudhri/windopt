@@ -1,36 +1,35 @@
 # windopt: Multi-Fidelity Wind Farm Layout Optimization
 
-A Python framework for optimizing wind farm turbine layouts using multi-fidelity Bayesian optimization. Combines inexpensive analytical wake models with high-fidelity large-eddy simulations (LES) to efficiently optimize turbine placement for maximum power output.
+A framework for efficiently and accurately optimizing wind turbine layouts using Bayesian optimization, combining cheap analytical wake models with gold-standard large-eddy simulations.
 
 ## Overview
 
-Wind farm layout optimization is crucial for maximizing power output.
-Gold-standard approaches using high-fidelity simulations are computationally expensive,
-and approximate solutions using cheap alternatives like analytic wake models may fail to capture the
-complex dynamics of the flow through wind farms.
-This project implements a multi-fidelity optimization approach that:
+Wind farms produce more power when turbines are optimally positioned, but finding the best layout is challenging. Gold-standard approaches using high-fidelity simulations are computationally expensive, while simplified analytical wake models may miss important flow physics.
 
-- Uses the Gauss-curl hybrid (GCH) wake model as a fast approximation
-- Combines it with accurate large-eddy simulations (LES)
-- Employs multi-task Bayesian optimization to efficiently trade off between fidelities
-- Supports batch parallel evaluation of layouts
+This project *adaptively combines information* from both approaches to efficiently find optimal layouts.
 
-Current results show the multi-fidelity approach can find near-optimal layouts with significantly fewer expensive LES evaluations compared to single-fidelity methods.
+The framework:
+- Combines the Gauss-curl hybrid (GCH) wake model with large-eddy simulations (LES)
+- Employs multi-task and multi-fidelity Bayesian optimization to efficiently balance between fidelities
+- Supports batch parallel evaluation of candidate layouts
+
+Our results demonstrate that the multi-fidelity approach can find near-optimal layouts with significantly fewer expensive LES evaluations compared to single-fidelity methods.
 
 ## Requirements
 
-- Python ≥ 3.10
-- Ax Platform ≥ 0.4.0 (Experiment management)
-- FLORIS ≥ 4.2.1 (GCH wake model)
-- WInc3D (LES simulations)
-- f90nml ≥ 1.4.4 (Fortran namelist handling)
-- seaborn ≥ 0.13.2 (Visualization)
-- kaleido == 0.2.1 (Static plot export)
+- Python 3.10+
+- Ax Platform 0.4.0+
+- FLORIS 4.2.1+
+- WInc3D (LES simulator)
+- f90nml 1.4.4+
+- seaborn 0.13.2+
+- kaleido 0.2.1
 
 WInc3D must be installed separately following instructions at [WInc3D repository](https://github.com/imperialcollegelondon/winc3d/).
 
 ## Usage
 
+### Optimization
 Optimization campaigns are run through a command-line interface:
 
 ```bash
@@ -54,8 +53,6 @@ python -m windopt.optim.cli new my-mf-campaign \
 python -m windopt.optim.cli restart my-campaign
 ```
 
-> **Note**: Custom LES configuration support is still under development. Currently using default WInc3D settings as described in the technical report.
-
 The main optimization workflow consists of:
 
 1. Running precursor simulations to generate inflow conditions
@@ -63,41 +60,9 @@ The main optimization workflow consists of:
 3. Fitting multi-task Gaussian processes to observations
 4. Selecting new layouts via batch expected improvement
 
-```
-.
-├── campaigns/     # Optimization experiment results
-├── config/       # Configuration files
-├── data/         # Input data and initial samples
-├── doc/          # Documentation and reports
-├── src/
-│   └── windopt/  # Main package
-│       ├── config/     # Configuration handling
-│       ├── initial/    # Initial sampling routines
-│       ├── optim/      # Optimization implementations
-│       ├── viz/        # Visualization utilities
-│       └── winc3d/     # WInc3D LES interface
-```
+### Visualization
 
-## Current Status & Limitations
-
-- Currently supports optimization of up to 4 turbines as proof of concept
-- Handles single wind direction/speed (extension to varying conditions planned)
-- Uses fixed simulation durations (adaptive durations planned)
-- Requires manual alternation between fidelities (automatic selection planned)
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## Acknowledgements
-
-- Prof. Nikos Bempedelis (Queen Mary University of London) for guidance on LES configuration
-- Prof. John Cunningham (Columbia University) for Bayesian optimization guidance
-- Columbia University's Terremoto computing cluster for computational resources
-
-## Visualization Tools
-
-The package includes several visualization utilities for analyzing wind farm simulations and optimization results:
+The package includes visualization utilities for analyzing wind farm simulations and optimization results:
 
 ```bash
 # Plot instantaneous and mean velocity fields, where the instantanous field is taken 1 hour after spinup
@@ -111,18 +76,37 @@ python -m windopt.viz.vector_field run_dir \
     --save anim.html
 ```
 
-Key visualization features:
-- Interactive velocity field animations using Plotly
-- Power convergence analysis for different layouts
-- Precursor simulation validation (velocity profiles, turbulence intensity)
-- Optimization campaign progress tracking
-- Support for both static plots and animated visualizations
-- Export to PNG/HTML formats
+The visualization tools allow you to:
+- Examine velocity field development through wind farms
+- Understand wake interactions between turbines
+- Monitor statistical convergence of simulations
+- Track optimization campaign performance
 
-The visualizations were used to generate all figures in the technical report and are designed to help analyze:
-- Flow field development through wind farms
-- Wake interactions between turbines
-- Statistical convergence of simulations
-- Optimization campaign performance
+## Limitations
 
-See the technical report for example visualizations and detailed analysis.
+- Currently supports optimization of up to 4 turbines as proof of concept
+- Handles single wind direction/speed (extension to varying conditions planned)
+- Uses fixed simulation durations (adaptive durations planned)
+- Requires manual alternation between fidelities (automatic selection planned)
+
+## Acknowledgements
+
+- Prof. Nikos Bempedelis (Queen Mary University of London) for guidance on LES configuration
+- Prof. John Cunningham (Columbia University) for Bayesian optimization guidance
+- Columbia University's Terremoto computing cluster for computational resources
+
+## Project Structure
+```
+.
+├── campaigns/    # Optimization experiment results
+├── config/       # Configuration files
+├── data/         # Input data and initial samples
+├── doc/          # Documentation and reports
+├── src/
+│   └── windopt/  # Main package
+│       ├── config/     # Configuration handling
+│       ├── initial/    # Initial sampling routines
+│       ├── optim/      # Optimization implementations
+│       ├── viz/        # Visualization utilities
+│       └── winc3d/     # WInc3D LES interface
+```
