@@ -4,16 +4,20 @@ A framework for efficiently and accurately optimizing wind turbine layouts using
 
 ## Overview
 
-Wind farms produce more power when turbines are optimally positioned, but finding the best layout is challenging. Gold-standard approaches using high-fidelity simulations are computationally expensive, while simplified analytical wake models may miss important flow physics.
+Wind farms produce more power when turbines are optimally positioned, but finding the best layout is challenging. Gold-standard approaches using high-fidelity large-eddy simulations (LES) are computationally expensive, while simplified analytical wake models may miss important flow physics.
 
 This project *adaptively combines information* from both approaches to efficiently find optimal layouts.
 
+Preliminary results indicate that the multi-fidelity approach can find **near-optimal layouts with significantly (60%) fewer** expensive LES evaluations compared to single-fidelity methods.
+
+![Optimization Convergence Comparison](img/power-trajectories.png)
+*Multi-fidelity optimization (right) reaches near-optimal designs in <20 simulations (4 batches), while single-fidelity LES optimization (left) requires 60+ simulations (12+ batches) to achieve similar performance. Both significantly outperform a standard grid layout (red line).*
+
 The framework:
-- Combines the Gauss-curl hybrid (GCH) wake model with large-eddy simulations (LES)
+- Combines the approximate Gauss-curl hybrid (GCH) wake model with large-eddy simulations (LES)
 - Employs multi-task and multi-fidelity Bayesian optimization to efficiently balance between fidelities
 - Supports batch parallel evaluation of candidate layouts
 
-Our results demonstrate that the multi-fidelity approach can find near-optimal layouts with significantly fewer expensive LES evaluations compared to single-fidelity methods.
 
 ## Requirements
 
@@ -75,6 +79,9 @@ python -m windopt.viz.vector_field run_dir \
     --n_steps 100 \
     --save anim.html
 ```
+
+![Instantaneous and mean velocity field visualizations for a grid wind farm layout](img/grid_velocity_flow.png)
+*Displayed: Instantaneous and mean streamwise velocity (in m/s) throughout a grid-layout wind farm.*
 
 The visualization tools allow you to:
 - Examine velocity field development through wind farms
